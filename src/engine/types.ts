@@ -82,6 +82,13 @@ export enum SandboxMapSize {
   LARGE = 20,
 }
 
+export enum MatchPhase {
+  DRAFTING = 'DRAFTING',
+  PLACEMENT = 'PLACEMENT',
+  PLAYING = 'PLAYING',
+  ENDED = 'ENDED',
+}
+
 export interface SandboxSettings {
   mapSize: SandboxMapSize
   weatherFixed?: WeatherType

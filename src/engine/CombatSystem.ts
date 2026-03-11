@@ -8,6 +8,7 @@ import { MapGrid } from './MapGrid'
 import {
   SoldierRole, EnemyType, FirePermission, TerrainType, ReportCategory,
 } from './types'
+import { audioManager } from '../services/AudioManager'
 
 export interface CombatResult {
   attackHit: boolean
@@ -55,7 +56,7 @@ export const CombatSystem = {
     }
 
     if (attacker.getRole() === SoldierRole.SNIPER && attacker.getMorale() <= 40) {
-      result.reportMessage = 'Keskin nişancı ağır baskı altında! Odaklanamıyor, atış iptal.'
+      result.reportMessage = 'Keskin nişancı eli ayağı titriyor! Baskı çok ağır, tetiğe basamıyor!'
       return result
     }
 
@@ -84,22 +85,29 @@ export const CombatSystem = {
       defender.takeDamage(finalDmg)
       result.category = ReportCategory.SUCCESS
 
+      audioManager.startGunfireAmbient()
+      if (attacker.getRole() === SoldierRole.SNIPER && isCritical) {
+        audioManager.playSniperShot()
+      } else if (attacker.getRole() === SoldierRole.ARMORED) {
+        audioManager.playTankFire()
+      }
+
       if (!defender.isAlive()) {
         result.defenderKilled = true
-        if (isCritical) result.reportMessage = pick(['Gözünden vuruldu! Kritik isabet, hedef anında öldü.', 'Tek mermi, tek leş. Keskin nişancı atışı başarılı.', 'Rüzgarı okuduk, hedefi indirdik. Başından vuruldu.'])
-        else if (attacker.getRole() === SoldierRole.ARMORED) result.reportMessage = pick(['Hedef havaya uçtu! Tank imhası onaylandı.', 'Çelik yığınına döndüler, tam isabet!', 'Zırh delici isabet! Hedef tamamen imha edildi.'])
-        else result.reportMessage = pick(['Hedef vuruldu ve etkisiz hale getirildi! Tekrar ediyorum, düşman imha edildi.', 'Leşimiz var komutanım, hedef imha edildi!', 'Hedefteki unsur etkisiz hale getirildi. Bölge temiz.', 'İsabet tam! Düşman unsuru ortadan kaldırıldı.'])
+        if (isCritical) result.reportMessage = pick(['Alnının çatına koyduk! Kritik isabet, çakal indi.', 'Tek mermi, bir eksik. Faturayı kestik.', 'Rüzgarı kokladık, beynini dağıttık. Mevzi temiz.'])
+        else if (attacker.getRole() === SoldierRole.ARMORED) result.reportMessage = pick(['Havai fişek oldu namussuzlar! Tank imhası tertemiz.', 'Çelik yığınına döndüler, hurda niyetine toplasınlar artık!', 'Zırh mı bıraktık? Hedef yerle yeksan oldu.'])
+        else result.reportMessage = pick(['Hedef paketlendi! Tekrar ediyorum, bir leşimiz daha var.', 'Birini daha cehenneme postaladık komutanım!', 'Unsur etkisiz, diğer dünya biletini kesti bizimkiler.', 'İsabet tam! Çakal sürüsünden biri daha eksildi.'])
       } else {
-        if (isCritical) result.reportMessage = pick(['Kritik isabet! Hedef ağır bedel ödüyor.', 'Keskin nişancı vuruşu! Düşman sendeledi, büyük hasar aldı.'])
-        else if (defender.getType() === EnemyType.ARMORED) result.reportMessage = pick(['Zırhlı araca isabet! Durduramadık ama yavaşladı.', 'RPG isabetli! Paleti hasar aldı komutanım.', 'Zırhını delemiyoruz ama dış aksamı zarar gördü.'])
-        else result.reportMessage = pick(['Sıcak temas sağlandı, düşmanı vurduk! Yaralıdır, baskıya devam.', 'İsabetimiz var! Düşman geri çekiliyor, ateşle karşılık veriyorlar.', 'Karargah, temas noktası ateş altında. Unsur yaralandı.'])
+        if (isCritical) result.reportMessage = pick(['Kandilini söndürdük ama hala ayakta!', 'Namussuzun canı tatlıymış, ağır hasar aldı ama bırakmıyor.'])
+        else if (defender.getType() === EnemyType.ARMORED) result.reportMessage = pick(['Zırhlıya vurduk, dumanı tütüyor!', 'RPG yaladı geçti ama paleti dağıttık, kımıldayamaz artık.', 'Zırhı kalın pezevengin ama dışını haşat ettik.'])
+        else result.reportMessage = pick(['Temas sağlandı, çakalı deldik geçtik! Yaralıdır, bastırmaya devam.', 'İsabetimiz var! Düşman göt korkusuna geri çekiliyor.', 'Karargah, temas noktası dövülüyor. Unsur kan kaybediyor.'])
       }
     } else {
       if (attacker.getRole() === SoldierRole.MG) {
         defender.adjustMorale(-15)
-        result.reportMessage = pick(['Makineli tüfekle baskı kuruyoruz! Hedef kafasını bile kaldıramıyor.', 'Yoğun kurşun yağmuru! İsabet yok ama düşmanın morali yerle bir oldu.', 'Aralıksız ateş ediyoruz! Hedefin psikolojisi çöktü.'])
+        result.reportMessage = pick(['Makineliyle kusturuyoruz! Kafasını kaldıranın beynini alıyoruz.', 'Yoğun kurşun yağmuru! İsabet yok ama azrailin nefesini hissediyorlar.', 'Mermiyi esirgemiyoruz! Hedefin feleği şaştı.'])
       } else {
-        result.reportMessage = pick(['Ateş baskısı kuruyoruz ama net isabet yok! Çatışma devam ediyor.', 'Mermiler siperde patlıyor, hedef başını kaldırmıyor.', 'Karargah, ateş serbest ama mermiler boşa düşüyor. Düşman siperde.'])
+        result.reportMessage = pick(['Ateşle dövüyoruz ama namussuzlar iyi saklanıyor!', 'Mermiler mevzide patlıyor, altına sıçıyorlar ama ölmediler daha.', 'Karargah, ateş serbest ama mermiler havaya gidiyor. Düşman kurnaz.'])
       }
     }
     return result
@@ -130,14 +138,21 @@ export const CombatSystem = {
       defender.adjustMorale(-10)
       result.category = ReportCategory.DANGER
 
+      audioManager.startGunfireAmbient()
+      if (attacker.getType() === EnemyType.SNIPER && result.damageDealt > 40) { // Approx critical
+        audioManager.playSniperShot()
+      } else if (attacker.getType() === EnemyType.ARMORED) {
+        audioManager.playTankFire()
+      }
+
       if (!defender.isAlive()) {
-        result.reportMessage = pick(['Komutanım... (Statik gürültü)... Vuruldu... (Ağır soluma)... Sinyal koptu.', 'Karargah... Vuruldum... Hakkınızı helal edin... Allah\'a emanet.', 'Mevzimize çöküldü! Şehidimiz var! Yardı... (Telsiz kesilmesi)'])
-        result.enemyTauntMessage = pick(['Devletinizin askerleri bir bir düşüyor! Burası size mezar olacak!', 'Telsiziniz artık bizde. Hepinizi kendi kanınızda boğacağız!', 'Komutan diye güvendiğiniz adamlar sizi ölüme yolluyor! Burası cehennem!'])
+        result.reportMessage = pick(['Komutanım... (Statik gürültü)... Vuruldu... Tertibim düştü... Sinyal koptu.', 'Karargah... Vuruldum... Kelime-i şehadet getiriyoruz... Allah\'a emanet.', 'Mevzimize çöküldü! Şehidimiz var! Kanları yerde kalma... (Telsiz kesilmesi)'])
+        result.enemyTauntMessage = pick(['Devletinizin köpekleri bir bir düşüyor! Burası size mezar olacak!', 'Telsiziniz artık bizde. Hepinizi kendi kanınızda boğacağız!', 'Komutan diye güvendiğiniz adamlar sizi ölüme yolluyor! Burası cehennem!'])
       } else {
         if (attacker.getType() === EnemyType.ARMORED) {
-          result.reportMessage = pick(['Düşman tankı ateş açıyor! Mevziyi terk etmemiz lazım!', 'Zırhlı birim üzerimize sürüyor, acil hava desteği gerek!', 'Karargah, palet sesleri çok yakında, durduramıyoruz!'])
+          result.reportMessage = pick(['Düşman tankı ateş kusuyor! Mevzi elden gidiyor!', 'Zırhlı it üzerimize sürüyor, acil hava desteği lazım!', 'Karargah, palet sesleri ensenizde, durduramıyoruz!'])
         } else {
-          result.reportMessage = pick(['Ağır baskı altındayız! Yaralılarımız var, acil tahliye gerek!', 'Çok yakınımıza düştü! Bölükte yaralılar var, kanamaları durduramıyoruz.', 'Sıhhiye! Sıhhiye gerek! Mevzide zayiat verdik komutanım.', 'Karargah, mermi deldi geçti! Durumumuz kritik, takviye bekliyoruz.'])
+          result.reportMessage = pick(['Ağır baskı altındayız! Yaralılarımız var, acil helikopter lazım!', 'Çok yakınımıza susturdular! Çocuklar perişan, kanı durduramıyoruz.', 'Sıhhiye! Sıhhiye yetiş! Mevzide can çekişen var komutanım.', 'Karargah, mermi deldi geçti! Durumumuz b*ktan, takviye göndersene!'])
         }
         if (d100() <= 20) {
           result.enemyTauntMessage = pick(['Hahaha! Kaçacak yeriniz yok, etrafınız sarıldı!', 'Telsiz frekansınız kırıldı askerler! Dinlediğinizi biliyoruz, öleceksiniz!', 'Devletinizin kurşunları bitmek üzere, biz ise daha yeni başlıyoruz!'])
@@ -147,10 +162,10 @@ export const CombatSystem = {
       if (attacker.getType() === EnemyType.MG) {
         defender.adjustMorale(-15)
         defender.setUnderFire()
-        result.reportMessage = pick(['Düşman ağır makineli ile baskı kurdu! Siperden çıkamıyoruz!', 'Üzerimize mermi yağıyor, moralimiz bozuluyor komutanım!', 'Yoğun MG ateşi altındayız, kafamızı kaldıramıyoruz!'])
+        result.reportMessage = pick(['Düşman makineliyle kusturuyor! Siperden başını çıkaranın beynini alıyorlar!', 'Üzerimize mermi yağıyor, çocuklar perişan komutanım!', 'Yoğun MG ateşi altındayız, kımıldayanı vuruyorlar!'])
       } else {
         defender.adjustMorale(-2)
-        result.reportMessage = pick(['Ateş altındayız! Karşılık vermeye çalışıyoruz.', 'Yoğun atış altındayız, başımızı kaldıramıyoruz komutanım!', 'Düşman ateşi! Siper alın, siper alın!', 'Mermiler başımızın üstünden geçiyor, şimdilik iyiyiz!'])
+        result.reportMessage = pick(['Ateş altındayız! Mukavemet gösteriyoruz.', 'Yoğun atış altındayız, başımızı kaldıramıyoruz komutanım!', 'Düşman ateşi! Yat yere yat!', 'Mermiler vızır vızır geçiyor, şansımız yaver gidiyor!'])
       }
     }
     return result

@@ -4,12 +4,12 @@ import { TerrainType, roleToIcon, enemyTypeToIcon } from '../engine/types'
 import { Soldier } from '../engine/Soldier'
 import { EnemyUnit } from '../engine/EnemyUnit'
 
-const TERRAIN_BG: Record<TerrainType, string> = {
-  [TerrainType.OPEN]:     '#0a150a',
-  [TerrainType.CITY]:     '#0a0a18',
-  [TerrainType.FOREST]:   '#0a1a0a',
-  [TerrainType.MOUNTAIN]: '#18140a',
-  [TerrainType.BRIDGE]:   '#0a1414',
+const TERRAIN_BG_CLASS: Record<TerrainType, string> = {
+  [TerrainType.OPEN]:     'bg-[#0A0E17]',
+  [TerrainType.CITY]:     'texture-city-grid',
+  [TerrainType.FOREST]:   'texture-hatch',
+  [TerrainType.MOUNTAIN]: 'texture-topo',
+  [TerrainType.BRIDGE]:   'bg-[#0f172a]',
 }
 
 const TERRAIN_SYMBOL: Record<TerrainType, string> = {
@@ -31,7 +31,7 @@ export function MapGridComponent() {
 
   if (!state) return null
 
-  const { units, enemies, mapGrid, capturePoint, hasCapturePoint } = state
+  const { units, enemies, mapGrid, capturePoint, hasCapturePoint, discoveredTiles } = state
 
   // Build position maps for quick lookup
   const unitPositions = new Map<string, { unitId: string; unit: Soldier }>()
@@ -69,7 +69,6 @@ export function MapGridComponent() {
     if (strikeMode === 'uh60') {
       const cellKey = `${x},${y}`
       const targetUnit = unitPositions.get(cellKey)
-      // MEDEVAC targets dead OR incapacitated friendly units
       if (selectedUnitId && targetUnit) {
         const s = targetUnit.unit as Soldier
         if (!s.isAlive() || s.isIncapacitated()) {
@@ -89,7 +88,6 @@ export function MapGridComponent() {
     } else if (enemyHere) {
       selectEnemy(selectedEnemyId === enemyHere.enemyId ? null : enemyHere.enemyId)
     } else if (selectedUnitId) {
-      // Move selected unit to this cell
       moveUnit(selectedUnitId, x, y)
     }
   }
@@ -97,34 +95,47 @@ export function MapGridComponent() {
   const grid = mapGrid.getGrid()
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full bg-[#0A0E17] relative overflow-hidden">
+      {/* Terminal Overlays */}
+      <div className="scanlines-overlay" />
+      <div className="vignette-overlay" />
+
+      {/* Terminal Status Indicators */}
+      <div className="absolute bottom-2 right-2 flex flex-col items-end pointer-events-none z-[110]">
+        <span className="terminal-label animate-pulse">BFT: ONLINE</span>
+        <span className="terminal-label">SCAN: ACTIVE</span>
+        <span className="terminal-label text-[8px] opacity-40">GRID SOURCE: MSS</span>
+      </div>
+
+      <div className="absolute top-2 left-2 flex flex-col pointer-events-none z-[110]">
+        <span className="terminal-label text-[8px]">RADAR TERM V4.1</span>
+      </div>
+
       {/* Panel header */}
-      <div className="px-3 py-3 border-b border-mil-border bg-mil-panel flex items-center gap-2 flex-shrink-0">
-        <span className="text-mil-green text-lg">🗺</span>
-        <span className="text-mil-textBright text-sm font-bold tracking-widest leading-none">TAKTİK HARİTA</span>
+      <div className="px-3 py-3 border-b border-mil-border bg-mil-panel flex items-center gap-2 flex-shrink-0 z-10">
+        <span className="text-[#00FFFF] text-lg animate-pulse">☶</span>
+        <span className="text-[#00FFFF] text-sm font-bold tracking-widest leading-none">TERMINAL TAKTİK</span>
         <div className="ml-auto flex gap-2">
           <button
             id="btn-artillery"
             onClick={() => setStrikeMode(s => s === 'artillery' ? 'none' : 'artillery')}
-            className={`text-xs px-2 py-0.5 border transition-all ${strikeMode === 'artillery' ? 'border-mil-yellow text-mil-yellow bg-yellow-950/30' : 'border-mil-border text-mil-dim hover:text-mil-yellow'}`}
-            title="Topçu Desteği"
+            className={`text-xs px-2 py-0.5 border transition-all ${strikeMode === 'artillery' ? 'border-[#FFD700] text-[#FFD700] bg-yellow-950/20' : 'border-mil-border text-[#4b5563] hover:text-[#FFD700]'}`}
           >
             💣 TOPÇU
           </button>
           <button
             id="btn-airstrike"
             onClick={() => setStrikeMode(s => s === 'airstrike' ? 'none' : 'airstrike')}
-            className={`text-xs px-2 py-0.5 border transition-all ${strikeMode === 'airstrike' ? 'border-mil-cyan text-mil-cyan bg-cyan-950/30' : 'border-mil-border text-mil-dim hover:text-mil-cyan'}`}
-            title="Hava Desteği"
+            className={`text-xs px-2 py-0.5 border transition-all ${strikeMode === 'airstrike' ? 'border-[#FF00FF] text-[#FF00FF] bg-purple-950/20' : 'border-mil-border text-[#4b5563] hover:text-[#FF00FF]'}`}
+            title="F-16 Hava Saldırısı (Geniş Alan Hasarı)"
           >
-            ✈ HAVA
+            ✈️ F-16
           </button>
           <button
             id="btn-t129"
             disabled={!selectedUnitId}
             onClick={() => setStrikeMode(s => s === 't129' ? 'none' : 't129')}
-            className={`text-xs px-2 py-0.5 border transition-all ${!selectedUnitId ? 'opacity-30 cursor-not-allowed border-mil-border text-mil-dim' : strikeMode === 't129' ? 'border-mil-green text-mil-green bg-green-950/30' : 'border-mil-border text-mil-dim hover:text-mil-green'}`}
-            title="T-129 ATAK Yakın Hava Desteği"
+            className={`text-xs px-2 py-0.5 border transition-all ${!selectedUnitId ? 'opacity-30 cursor-not-allowed border-mil-border text-[#4b5563]' : strikeMode === 't129' ? 'border-[#00FF00] text-[#00FF00] bg-green-950/20' : 'border-mil-border text-[#4b5563] hover:text-[#00FF00]'}`}
           >
             🚁 ATAK
           </button>
@@ -132,55 +143,32 @@ export function MapGridComponent() {
             id="btn-uh60"
             disabled={!selectedUnitId || state.uh60State !== 'idle'}
             onClick={() => setStrikeMode(s => s === 'uh60' ? 'none' : 'uh60')}
-            className={`text-xs px-2 py-0.5 border transition-all ${(!selectedUnitId || state.uh60State !== 'idle') ? 'opacity-30 cursor-not-allowed border-mil-border text-mil-dim' : strikeMode === 'uh60' ? 'border-mil-cyan text-mil-cyan bg-cyan-950/30' : 'border-mil-border text-mil-dim hover:text-mil-cyan'}`}
-            title={state.uh60State !== 'idle' ? `UH-60 Operasyonda (ETA: ${state.uh60Timer} dk)` : "UH-60 MEDEVAC Tahliye"}
+            className={`text-xs px-2 py-0.5 border transition-all ${(!selectedUnitId || state.uh60State !== 'idle') ? 'opacity-30 cursor-not-allowed border-mil-border text-[#4b5563]' : strikeMode === 'uh60' ? 'border-[#00FFFF] text-[#00FFFF] bg-cyan-950/20' : 'border-mil-border text-[#4b5563] hover:text-[#00FFFF]'}`}
           >
-            🚑 MEDEVAC {state.uh60State !== 'idle' && `(${state.uh60Timer})`}
+            🚑 MEDEVAC
           </button>
         </div>
       </div>
 
-      {/* Strike mode indicator */}
-      {strikeMode !== 'none' && (
-        <div className={`text-center text-xs py-1 font-bold animate-pulse ${
-          strikeMode === 'artillery' ? 'bg-yellow-950/40 text-mil-yellow' : 
-          strikeMode === 't129' ? 'bg-green-950/40 text-mil-green' :
-          'bg-cyan-950/40 text-mil-cyan'
-        }`}>
-          🎯 {
-            strikeMode === 'artillery' ? 'TOPÇU' : 
-            strikeMode === 'airstrike' ? 'HAVA DESTEĞİ' :
-            strikeMode === 't129' ? 'T-129 ATAK (NOKTA ATIŞI)' :
-            'UH-60 MEDEVAC (YARALI SEÇ)'
-          } — Hedef koordinatı seç
-        </div>
-      )}
-
-      {/* Map legend */}
-      <div className="flex gap-3 px-3 py-1 border-b border-mil-border text-xs text-mil-dim flex-shrink-0 flex-wrap">
-        <span className="text-mil-green">🔵 Dost</span>
-        <span className="text-mil-red">🔴 Düşman</span>
-        {hasCapturePoint && <span className="text-mil-yellow">🎯 Karakol</span>}
-        {selectedUnitId && <span className="text-mil-textBright">↓ Hücreye tıkla → İntikal</span>}
-      </div>
-
       {/* Grid */}
-      <div className="flex-1 flex items-center justify-center p-2 overflow-hidden">
+      <div className="flex-1 flex items-center justify-center p-2 overflow-hidden z-10">
         <div
           className="grid gap-0"
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(15, 1fr)',
+            gridTemplateColumns: `repeat(${mapGrid.width}, 1fr)`,
             width: '100%',
-            maxWidth: '480px',
-            aspectRatio: '1/1',
+            maxWidth: mapGrid.width > 15 ? '640px' : '480px',
+            aspectRatio: `${mapGrid.width}/${mapGrid.height}`,
+            position: 'relative',
           }}
         >
-          {Array.from({ length: 15 }, (_, y) =>
-            Array.from({ length: 15 }, (_, x) => {
+          {Array.from({ length: mapGrid.height }, (_, y) =>
+            Array.from({ length: mapGrid.width }, (_, x) => {
               const cellKey = `${x},${y}`
               const unitHere = unitPositions.get(cellKey)
               const enemyHere = enemyPositions.get(cellKey)
+              const isDiscovered = discoveredTiles?.has(cellKey) ?? true
               const terrain = grid[y]?.[x] ?? TerrainType.OPEN
               const isCapturePoint = hasCapturePoint && capturePoint.x === x && capturePoint.y === y
               const isSelectedUnit = unitHere && selectedUnitId === unitHere.unitId
@@ -188,90 +176,61 @@ export function MapGridComponent() {
               const isHovered = hoveredCell?.x === x && hoveredCell?.y === y
               const isStrikeTarget = strikeMode !== 'none' && isHovered
 
-              let borderColor = 'border-transparent'
-              if (isSelectedUnit) borderColor = 'border-mil-green'
-              else if (isSelectedEnemy) borderColor = 'border-mil-red'
-              else if (isCapturePoint) borderColor = 'border-mil-yellow'
+              let borderColor = 'rgba(0, 255, 255, 0.05)'
+              if (isSelectedUnit) borderColor = '#00FF00'
+              else if (isSelectedEnemy) borderColor = '#FF0000'
+              else if (isCapturePoint) borderColor = '#FFD700'
               else if (isStrikeTarget) {
-                borderColor = 
-                  strikeMode === 'artillery' ? 'border-mil-yellow' : 
-                  strikeMode === 't129' ? 'border-mil-green' : 
-                  'border-mil-cyan'
+                borderColor = strikeMode === 'artillery' ? '#FFD700' : strikeMode === 't129' ? '#00FF00' : '#00FFFF'
               }
-
-              // Highlight potential MEDEVAC targets when in that mode
-              const isEligibleMedevac = strikeMode === 'uh60' && unitHere && (!unitHere.unit.isAlive() || (unitHere.unit as Soldier).isIncapacitated())
-              if (isEligibleMedevac) borderColor = 'border-mil-cyan animate-pulse shadow-[0_0_10px_#06b6d4]'
 
               return (
                 <div
                   key={cellKey}
-                  className={`map-cell relative flex items-center justify-center border cursor-pointer select-none ${borderColor} ${isStrikeTarget ? 'brightness-150' : ''}`}
+                  className={`map-cell relative flex items-center justify-center border cursor-pointer select-none ${TERRAIN_BG_CLASS[terrain]} ${!isDiscovered ? 'wavy-fog' : ''}`}
                   style={{
-                    backgroundColor: TERRAIN_BG[terrain],
                     aspectRatio: '1/1',
                     fontSize: 'clamp(6px, 1.5vw, 13px)',
                     borderWidth: '1px',
-                    borderColor: isSelectedUnit ? '#22c55e' : isSelectedEnemy ? '#ef4444' : isCapturePoint ? '#eab308' : '#1e2e1e',
+                    borderColor: borderColor,
+                    boxShadow: isSelectedUnit ? '0 0 10px rgba(0, 255, 0, 0.2)' : isSelectedEnemy ? '0 0 10px rgba(255, 0, 0, 0.2)' : 'none',
                   }}
                   onClick={() => handleCellClick(x, y)}
                   onMouseEnter={() => setHoveredCell({ x, y })}
                   onMouseLeave={() => setHoveredCell(null)}
-                  title={`(${x},${y}) ${terrain}${unitHere ? ` — ${unitHere.unit.getName()}` : ''}${enemyHere ? ` — ${enemyHere.enemy.getName()}` : ''}`}
                 >
                   {unitHere ? (
                     <span
-                      className={!unitHere.unit.isAlive() ? 'pulse-red' : ''}
+                      className={`glow-neon-green ${!unitHere.unit.isAlive() ? 'pulse-red' : ''}`}
                       style={{
-                        textShadow: unitHere.unit.isAlive() 
-                          ? '0 0 4px rgba(34,197,94,0.8)' 
-                          : '0 0 6px rgba(239,68,68,0.9)',
-                        filter: isSelectedUnit ? 'brightness(1.5)' : 'none',
-                        color: unitHere.unit.isAlive() ? '#22c55e' : '#ef4444',
+                        zIndex: 2,
+                        color: unitHere.unit.isAlive() ? '#00FF00' : '#FF0000',
                       }}
-                      title={unitHere.unit.getName() + (unitHere.unit.isAlive() ? '' : ' (WIA/KIA)')}
                     >
                       {unitHere.unit.isAlive() 
                         ? roleToIcon((unitHere.unit as Soldier).getRole()) 
-                        : `☠️${roleToIcon((unitHere.unit as Soldier).getRole())}`}
+                        : `☠️`}
                     </span>
-                  ) : enemyHere ? (
+                  ) : (isDiscovered && enemyHere) ? (
                     <span
-                      style={{ textShadow: '0 0 4px rgba(239,68,68,0.8)', filter: isSelectedEnemy ? 'brightness(1.5)' : 'none' }}
-                      title={enemyHere.enemy.getName()}
+                      className="glow-neon-red"
+                      style={{ zIndex: 2, color: '#FF0000' }}
                     >
                       {enemyTypeToIcon((enemyHere.enemy as EnemyUnit).getType())}
                     </span>
                   ) : isCapturePoint ? (
-                    <span className="text-mil-yellow animate-pulse" style={{ textShadow: '0 0 6px rgba(234,179,8,0.8)' }}>🎯</span>
+                    <span className="text-[#FFD700] animate-pulse glow-terminal-cyan" style={{ zIndex: 2 }}>⛨</span>
                   ) : (
-                    <span className="text-mil-text opacity-30 select-none">{TERRAIN_SYMBOL[terrain]}</span>
+                    <span className="text-[#00FFFF] opacity-10 select-none z-0">{isDiscovered ? TERRAIN_SYMBOL[terrain] : ''}</span>
                   )}
 
-                  {/* HP mini bar for units */}
-                  {unitHere && (
-                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-mil-border">
+                  {/* HP mini bar - schematic version */}
+                  {isDiscovered && (unitHere || enemyHere) && (
+                    <div className="absolute bottom-0 left-0 right-0 h-[1px] bg-white/5 z-10">
                       <div
-                        className="h-full bg-mil-green transition-all"
-                        style={{ width: `${(unitHere.unit.getHp() / unitHere.unit.getMaxHp()) * 100}%` }}
+                        className={`h-full transition-all ${unitHere ? 'bg-[#00FF00]' : 'bg-[#FF0000]'}`}
+                        style={{ width: `${((unitHere?.unit || enemyHere?.enemy)!.getHp() / (unitHere?.unit || enemyHere?.enemy)!.getMaxHp()) * 100}%` }}
                       />
-                    </div>
-                  )}
-                  {enemyHere && (
-                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-mil-border">
-                      <div
-                        className="h-full bg-mil-red transition-all"
-                        style={{ width: `${(enemyHere.enemy.getHp() / enemyHere.enemy.getMaxHp()) * 100}%` }}
-                      />
-                    </div>
-                  )}
-
-                  {/* UH-60 Transit Icon */}
-                  {state.uh60Target && state.uh60Target.x === x && state.uh60Target.y === y && (
-                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
-                      <span className="text-lg animate-bounce drop-shadow-[0_0_8px_rgba(34,211,238,0.8)]">
-                        {state.uh60State === 'loading' ? '🚑' : '🚁'}
-                      </span>
                     </div>
                   )}
                 </div>
@@ -281,17 +240,19 @@ export function MapGridComponent() {
         </div>
       </div>
 
-      {/* Coordinate display */}
+      {/* Coordinate display - Terminal Style */}
       {hoveredCell && (
-        <div className="px-3 py-1 bg-mil-panel border-t border-mil-border text-mil-dim text-xs flex-shrink-0">
-          Koordinat: ({hoveredCell.x}, {hoveredCell.y}) — {
+        <div className="px-3 py-1 bg-mil-panel border-t border-mil-border text-[#00FFFF] text-[10px] flex-shrink-0 z-20 font-bold uppercase tracking-widest">
+          POS: {hoveredCell.x.toString().padStart(2, '0')}.{hoveredCell.y.toString().padStart(2, '0')} // TYPE: {
             (() => {
               const cellKey = `${hoveredCell.x},${hoveredCell.y}`
+              const isDiscovered = discoveredTiles?.has(cellKey) ?? true
+              if (!isDiscovered) return 'DATA_N/A'
               const u = unitPositions.get(cellKey)
               const e = enemyPositions.get(cellKey)
-              if (u) return `🔵 ${u.unit.getName()} — HP:${u.unit.getHp()}/${u.unit.getMaxHp()}`
-              if (e) return `🔴 ${e.enemy.getName()} — HP:${e.enemy.getHp()}/${e.enemy.getMaxHp()}`
-              return 'Boş Alan'
+              if (u) return `FRIENDLY_${u.unit.getName().toUpperCase()}`
+              if (e) return `HOSTILE_${e.enemy.getName().toUpperCase()}`
+              return 'VACANT'
             })()
           }
         </div>

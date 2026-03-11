@@ -42,6 +42,21 @@ export class WeatherSystem {
   getSignalModifier(): number { return WEATHER_DATA[this.current].signalModifier }
   getVisionModifier(): number { return WEATHER_DATA[this.current].visionModifier }
   getWeatherType(): WeatherType { return this.current }
+  
+  getLightingColor(hour: number): string {
+    // 0-4: Night (Deep Blue)
+    if (hour < 5) return 'rgba(0, 5, 40, 0.45)'
+    // 5-6: Dawn (Purple/Blue)
+    if (hour < 7) return 'rgba(40, 20, 80, 0.3)'
+    // 7-17: Day (Transparent/Light)
+    if (hour < 18) return 'rgba(255, 255, 255, 0)'
+    // 18-19: Golden Hour (Orange)
+    if (hour < 20) return 'rgba(234, 88, 12, 0.25)' 
+    // 20-21: Dusk (Dark Purple)
+    if (hour < 22) return 'rgba(20, 10, 50, 0.4)'
+    // 22-24: Night
+    return 'rgba(0, 5, 40, 0.45)'
+  }
 
   serialize(): object {
     return { current: this.current, ticksSinceChange: this.ticksSinceChange }

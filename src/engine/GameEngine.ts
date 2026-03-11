@@ -10,11 +10,13 @@ import { WeatherSystem } from './WeatherSystem'
 import { CombatSystem } from './CombatSystem'
 import { Soldier } from './Soldier'
 import { EnemyUnit } from './EnemyUnit'
-import { loadScenario, makeEnemy } from './Scenario'
+import { loadScenario, makeEnemy, makeUnit } from './Scenario'
+import { audioManager } from '../services/AudioManager'
+import { MultiplayerLogic } from '../services/MultiplayerLogic'
 import {
   RadioMessage, PendingEngagement, Position,
   FirePermission, ReportCategory, ReportType, SupplyType, EnemyType, SoldierRole, EnemyState, DelayBreakdown, TerrainType,
-  ScenarioPhase, ObjectiveType, SandboxSettings, WeatherType
+  ScenarioPhase, ObjectiveType, SandboxSettings, WeatherType, MatchPhase, roleToString
 } from './types'
 
 export interface GameState {
@@ -49,6 +51,14 @@ export interface GameState {
   activePhaseIndex: number
   currentObjective?: string
   sandboxSettings?: SandboxSettings
+  discoveredTiles: Set<string>
+  matchPhase: MatchPhase
+  activePlayerId: string // 'host' or 'guest'
+  hostBudget: number
+  guestBudget: number
+  hostReady: boolean
+  guestReady: boolean
+  capturePointTurns: { host: number; guest: number }
 }
 
 export type GameStateListener = (state: GameState) => void
@@ -86,6 +96,17 @@ export class GameEngine {
   private activePhaseIndex: number = 0
   private sandboxSettings: SandboxSettings | null = null
   private survivalWaveCounter: number = 0
+  private combatActiveTimer: number = 0
+  private discoveredTiles: Set<string> = new Set()
+
+  // 1v1 Multiplayer properties
+  private matchPhase: MatchPhase = MatchPhase.PLAYING // Default for solo
+  private activePlayerId: string = 'host'
+  private hostBudget: number = 1000
+  private guestBudget: number = 1000
+  private hostReady: boolean = false
+  private guestReady: boolean = false
+  private capturePointTurns = { host: 0, guest: 0 }
 
   private listeners: GameStateListener[] = []
 
@@ -141,6 +162,14 @@ export class GameEngine {
       activePhaseIndex: this.activePhaseIndex,
       currentObjective: this.phases[this.activePhaseIndex]?.objective || (this.sandboxSettings ? (this.sandboxSettings.mode === 'SURVIVAL' ? 'Sonsuz Direniş: Hayatta Kal' : 'Bölge Temizliği: Tüm Düşmanları Yok Et') : undefined),
       sandboxSettings: this.sandboxSettings ? { ...this.sandboxSettings } : undefined,
+      discoveredTiles: new Set(this.discoveredTiles),
+      matchPhase: this.matchPhase,
+      activePlayerId: this.activePlayerId,
+      hostBudget: this.hostBudget,
+      guestBudget: this.guestBudget,
+      hostReady: this.hostReady,
+      guestReady: this.guestReady,
+      capturePointTurns: { ...this.capturePointTurns },
     }
   }
 
@@ -156,6 +185,8 @@ export class GameEngine {
     this.map = new MapGrid()
     this.weather = new WeatherSystem()
     this.activeScenarioIndex = index
+    this.discoveredTiles = new Set()
+    this.updateVision()
     this.victoryAchieved = false
     this.defeatAchieved = false
     this.capturePointFallen = false
@@ -228,7 +259,7 @@ export class GameEngine {
     if (settings.mode === 'SURVIVAL') {
       this.hasCapturePoint = true
       this.capturePoint = { x: Math.floor(settings.mapSize / 2), y: Math.floor(settings.mapSize / 2) }
-      this.defenseTimerMax = 9999 
+      this.defenseTimerMax = 999 
       this.defenseTimerCurrent = 0
     } else {
       this.hasCapturePoint = false
@@ -246,6 +277,141 @@ export class GameEngine {
     })
 
     this.notify()
+  }
+
+  // ── 1v1 Draft Mode Logic ────────────────────────────────────
+  initMatch1v1(): void {
+    this.units = new Map()
+    this.enemies = new Map()
+    this.time = new GameTime(1, 10, 0)
+    this.map = new MapGrid(15, 15)
+    this.weather = new WeatherSystem()
+    this.weather.setWeather(WeatherType.CLEAR)
+    
+    this.matchPhase = MatchPhase.DRAFTING
+    this.hostBudget = 1000
+    this.guestBudget = 1000
+    this.hostReady = false
+    this.guestReady = false
+    this.capturePoint = { x: 7, y: 7 }
+    this.hasCapturePoint = true
+    this.capturePointTurns = { host: 0, guest: 0 }
+    
+    this.radioLog = []
+    this.addRadioMessage({
+      id: crypto.randomUUID(),
+      fromUnitId: '📡 SİSTEM',
+      message: '1v1 TAKTİKSEL ÇATIŞMA: Hazırlık evresi başladı. Bütçenizi kullanarak ordunuzu kurun.',
+      sentTick: 0,
+      category: ReportCategory.MISSION_SUPPORT,
+      corrupted: false, type: ReportType.REGULAR
+    })
+    this.notify()
+  }
+
+  buyUnit(playerId: string, _role: SoldierRole, cost: number): boolean {
+    const budget = playerId === 'host' ? this.hostBudget : this.guestBudget
+    if (budget < cost) return false
+    if (playerId === 'host') this.hostBudget -= cost
+    else this.guestBudget -= cost
+    this.notify()
+    return true
+  }
+
+  placeUnit(playerId: string, role: SoldierRole, x: number, y: number): void {
+    if (playerId === 'host' && y < 13) return
+    if (playerId === 'guest' && y > 1) return
+    const id = `${playerId}-${role}-${Math.random().toString(36).substring(2, 5)}`
+    const s = makeUnit(id, roleToString(role), role, 100, 80, 60, 5, 1, x, y)
+    s.setOwnerId(playerId)
+    s.resetAP()
+    this.units.set(id, s)
+    this.updateVision()
+    this.notify()
+  }
+
+  setMatchReady(playerId: string): void {
+    if (playerId === 'host') this.hostReady = true
+    if (playerId === 'guest') this.guestReady = true
+    this.checkMatchPhaseTransitions()
+    this.notify()
+  }
+
+  private checkMatchPhaseTransitions(): void {
+    if (this.hostReady && this.guestReady) {
+      if (this.matchPhase === MatchPhase.DRAFTING) {
+        this.matchPhase = MatchPhase.PLACEMENT
+        this.hostReady = false
+        this.guestReady = false
+        this.addRadioMessage({
+          id: crypto.randomUUID(),
+          fromUnitId: '📡 SİSTEM',
+          message: 'DRAFT TAMAMLANDI. Şimdi birimlerinizi yerleştirin.',
+          sentTick: 0,
+          category: ReportCategory.MISSION_SUPPORT,
+          corrupted: false, type: ReportType.REGULAR
+        })
+      } else if (this.matchPhase === MatchPhase.PLACEMENT) {
+        this.matchPhase = MatchPhase.PLAYING
+        this.activePlayerId = 'host'
+        this.hostReady = false
+        this.guestReady = false
+        this.addRadioMessage({
+          id: crypto.randomUUID(),
+          fromUnitId: '🚀 SİSTEM',
+          message: 'OPERASYON BAŞLADI! Bayrağı ele geçir veya düşmanı imha et.',
+          sentTick: 0,
+          category: ReportCategory.SUCCESS,
+          corrupted: false, type: ReportType.REGULAR
+        })
+      }
+    }
+  }
+
+  endTurn(): void {
+    if (this.matchPhase !== MatchPhase.PLAYING) return
+    this.checkCapturePointAtTurnEnd()
+    this.activePlayerId = this.activePlayerId === 'host' ? 'guest' : 'host'
+    for (const u of this.units.values()) {
+      if (u.getOwnerId() === this.activePlayerId) u.resetAP()
+    }
+    this.addRadioMessage({
+      id: crypto.randomUUID(),
+      fromUnitId: '🔄 SİSTEM',
+      message: `Sıra ${this.activePlayerId === 'host' ? 'EV SAHİBİ' : 'MİSAFİR'} oyuncuda.`,
+      sentTick: this.time.toTotalMinutes(),
+      category: ReportCategory.REGULAR,
+      corrupted: false, type: ReportType.REGULAR
+    })
+    this.checkEndGame()
+    this.notify()
+  }
+
+  private checkCapturePointAtTurnEnd(): void {
+    const cp = this.capturePoint
+    const unitsOnPoint = [...this.units.values()].filter(u => {
+      const p = u.getPosition()
+      return p.x === cp.x && p.y === cp.y && u.isAlive()
+    })
+    if (unitsOnPoint.length === 1) {
+      const owner = unitsOnPoint[0].getOwnerId()
+      if (owner === 'host') this.capturePointTurns.host++
+      else this.capturePointTurns.guest++
+      if (this.capturePointTurns.host >= 3 || this.capturePointTurns.guest >= 3) {
+        this.victoryAchieved = true
+        this.addRadioMessage({
+          id: crypto.randomUUID(),
+          fromUnitId: '🏁 SİSTEM',
+          message: `STRATEJİK ZAFER! ${owner === 'host' ? 'EV SAHİBİ' : 'MİSAFİR'} bölgeyi 3 tur kontrol etti.`,
+          sentTick: this.time.toTotalMinutes(),
+          category: ReportCategory.SUCCESS,
+          corrupted: false, type: ReportType.REGULAR
+        })
+      }
+    } else {
+      this.capturePointTurns.host = 0
+      this.capturePointTurns.guest = 0
+    }
   }
 
   private spawnInitialEnemies(size: number): void {
@@ -340,9 +506,30 @@ export class GameEngine {
     }
   }
 
+  private updateVision(): void {
+    const visionRange = 4
+    for (const unit of this.units.values()) {
+      if (!unit.isAlive()) continue
+      const pos = unit.getPosition()
+      for (let dy = -visionRange; dy <= visionRange; dy++) {
+        for (let dx = -visionRange; dx <= visionRange; dx++) {
+          const dist = Math.sqrt(dx * dx + dy * dy)
+          if (dist <= visionRange) {
+            const tx = pos.x + dx
+            const ty = pos.y + dy
+            if (tx >= 0 && tx < this.map.width && ty >= 0 && ty < this.map.height) {
+              this.discoveredTiles.add(`${tx},${ty}`)
+            }
+          }
+        }
+      }
+    }
+  }
+
   private update(deltaTicks: number): void {
     for (let i = 1; i <= deltaTicks; i++) {
-      const currentSimTime = this.time.toTotalMinutes() - deltaTicks + i
+        this.updateVision()
+        const currentSimTime = this.time.toTotalMinutes() - deltaTicks + i
 
       // Cooldowns
       if (this.artilleryCooldown > 0) this.artilleryCooldown--
@@ -350,12 +537,21 @@ export class GameEngine {
       if (this.supplyCooldown > 0) this.supplyCooldown--
       if (this.t129Cooldown > 0) this.t129Cooldown--
 
+      if (this.combatActiveTimer > 0) {
+        this.combatActiveTimer--
+        if (this.combatActiveTimer === 0) {
+          audioManager.stopGunfireAmbient()
+        }
+      }
+
       // Process UH-60 MEDEVAC logic
       if (this.uh60State === 'flying' && this.uh60Timer > 0) {
+        audioManager.playHelicopter(0, 0); // Simplified: Center, close for now
         this.uh60Timer--
         if (this.uh60Timer <= 0) {
           this.uh60State = 'loading'
           this.uh60Timer = 2 // 2 ticks required for loading
+          audioManager.playHelicopter(0.2, 0); // Quieter while loading
           this.addRadioMessage({
             id: crypto.randomUUID(),
             fromUnitId: '🚁 UH-60',
@@ -415,6 +611,7 @@ export class GameEngine {
             this.units.delete(this.uh60Target.unitId) // Başarıyla tahliye edildi
           }
           this.uh60Target = null
+          audioManager.stopHelicopter()
         }
       }
 
@@ -459,7 +656,7 @@ export class GameEngine {
 
       // Update enemies & try enemy attacks
       for (const [, enemy] of this.enemies) {
-        enemy.update(1)
+        enemy.update(1, this.map.width, this.map.height)
         if (!enemy.isAlive()) continue
 
         for (const [playerId, playerUnit] of this.units) {
@@ -475,8 +672,9 @@ export class GameEngine {
 
           if (dist <= attackRange && Math.random() <= 0.15) {
             const soldier = playerUnit as Soldier
-            const res = CombatSystem.resolveEnemyAttack(enemy, soldier, this.map)
+            const res = MultiplayerLogic.processEnemyImpact(enemy, soldier, this.map)
             if (res.reportMessage) {
+              this.combatActiveTimer = 10
               const sig = this.map.calcSignalFactor({ x: 0, y: 0 }, playerUnit.getPosition()) * this.weather.getSignalModifier()
               this.radio.queueReport(playerId, res.reportMessage, currentSimTime, Math.max(0.1, 1 - sig), -1, ReportType.REGULAR, '', res.category)
               if (res.enemyTauntMessage) {
@@ -515,7 +713,7 @@ export class GameEngine {
               soldier.setEngagementTargetId(eid)
               this.radio.queueReport(
                 playerId,
-                `Karargah... Sinyal koptu! İnisiyatif kullanılarak hedefe serbest atış başlatıldı! (${enemy.getName()})`,
+                `Karargah... Sinyal koptu! İnisiyatif kullanıyoruz, çakalları mermiye boğmaya başladık! (${enemy.getName()})`,
                 currentSimTime, 0, currentSimTime,
                 ReportType.REGULAR, eid,
               )
@@ -526,7 +724,7 @@ export class GameEngine {
             soldier.setEngagementTargetId(eid)
             this.radio.queueReport(
               playerId,
-              `Karargah, menzilimizde düşman unsuru (${enemy.getName()}) tespit edildi! Atış izni istiyoruz, tamam.`,
+              `Karargah, menzilimizde bir it sürüsü (${enemy.getName()}) tespit edildi! İndirmek için emir bekliyoruz, tamam!`,
               currentSimTime, Math.max(0.1, 1 - sig), currentSimTime,
               ReportType.ENGAGEMENT_REQUEST, eid,
             )
@@ -540,7 +738,7 @@ export class GameEngine {
       if (!hasRations && i % 10 === 0) {
         for (const [id, unit] of this.units) {
           unit.adjustMorale(-5)
-          this.radio.queueReport(id, 'Karargah... açız... ikmal nerede?! Moral çöküyor.', currentSimTime, 0.3)
+          this.radio.queueReport(id, 'Karargah... Kurumuş boğazımız, ikmal nerede bre! Mide zil çalıyor, moral b*k gibi.', currentSimTime, 0.3)
         }
       }
 
@@ -551,7 +749,7 @@ export class GameEngine {
         this.addRadioMessage({
           id: crypto.randomUUID(),
           fromUnitId: '📦 LOJİSTİK',
-          message: `[İKMAL TESLİMATI] ${unitId} birimine ${amount}x ${typeName} teslim edildi.`,
+          message: `[İKMAL TESLİMATI] ${unitId} birimine koli bırakıldı (${amount}x ${typeName}). Afiyet olsun tertip!`,
           sentTick: currentSimTime,
           category: ReportCategory.SUCCESS,
           corrupted: false,
@@ -579,7 +777,7 @@ export class GameEngine {
             this.addRadioMessage({
               id: crypto.randomUUID(),
               fromUnitId: '💀 SİSTEM',
-              message: 'KARAKOL DÜŞTÜ! Düşman kuvvetleri mevziinizi ele geçirdi!',
+              message: 'KARAKOL GİTTİ! Namussuzlar içeri daldı, mevzi elden çıktı!',
               sentTick: currentSimTime,
               category: ReportCategory.DANGER,
               corrupted: false,
@@ -592,7 +790,7 @@ export class GameEngine {
           this.addRadioMessage({
             id: crypto.randomUUID(),
             fromUnitId: '🏆 KARARGAH',
-            message: 'SAVUNMA BAŞARILI! 120 dakika boyunca karakol korundu. Takviye ulaşıyor!',
+            message: 'SAVUNMA BAŞARILI! 120 dakika boyunca aslanlar gibi direndiniz. Takviye yolda!',
             sentTick: currentSimTime,
             category: ReportCategory.SUCCESS,
             corrupted: false,
@@ -609,9 +807,9 @@ export class GameEngine {
   private scheduleRandomEvents(currentTick: number): void {
     if (Math.random() < 0.005) {
       const msgs = [
-        'İstihbarat: Bölgede ek düşman hareketi gözlemlendi.',
-        'Hava desteği 30 dakika içinde bölgeye ulaşabilir, talep var mı?',
-        'Komşu birlik telsiz mesajı: "Bölgede muhtelif patlama sesleri var."',
+        'İstihbarat: Bölgede çakal hareketi seziyoruz, tetikte kalın.',
+        'Hava bükücüler 30 dakika içinde tepelerine binebilir, talep var mı?',
+        'Komşu birlik telsizi: "Buralar iyice ısındı, her yerden patlama sesi geliyor."',
       ]
       this.radio.queueReport('📡 İSTİHBARAT', msgs[Math.floor(Math.random() * msgs.length)], currentTick, 0.1, -1, ReportType.REGULAR, '', ReportCategory.MISSION_SUPPORT)
     }
@@ -667,9 +865,10 @@ export class GameEngine {
       }
       if (target) {
         const res = CombatSystem.resolveAttack(unit as Soldier, target, this.map)
+        this.combatActiveTimer = 10 // 10 ticks of ambient after last shot
         this.radio.queueReport(unitId, res.reportMessage, this.time.toTotalMinutes(), Math.max(0.1, 1 - sig), -1, ReportType.REGULAR, '', res.category)
       } else {
-        this.radio.queueReport(unitId, 'Görüş alanımızda veya menzilde hedef yok. Ateş iptal.', this.time.toTotalMinutes(), Math.max(0.1, 1 - sig))
+        this.radio.queueReport(unitId, 'Mıntıka temiz görünüyor, boş kovan harcamıyoruz.', this.time.toTotalMinutes(), Math.max(0.1, 1 - sig))
       }
     } else if (cmd === 'ATES_IZNI_VERILDI') {
       const soldier = unit as Soldier
@@ -677,8 +876,8 @@ export class GameEngine {
       const tid = soldier.getEngagementTargetId()
       const enemy = this.enemies.get(tid)
       if (enemy?.isAlive()) {
-        const res = CombatSystem.resolveAttack(soldier, enemy, this.map)
-        this.radio.queueReport(unitId, 'Anlaşıldı Karargah, atış serbest! ' + res.reportMessage, this.time.toTotalMinutes(), Math.max(0.1, 1 - sig), -1, ReportType.REGULAR, '', res.category)
+        const res = MultiplayerLogic.processCombatImpact(soldier, enemy, this.map)
+        this.radio.queueReport(unitId, 'Anlaşıldı Karargah, imha ateşine başlıyoruz! ' + res.reportMessage, this.time.toTotalMinutes(), Math.max(0.1, 1 - sig), -1, ReportType.REGULAR, '', res.category)
         if (res.enemyTauntMessage) {
           this.radio.queueReport('⚠️ BİLİNMEYEN', res.enemyTauntMessage, this.time.toTotalMinutes() + 1, 0.6, -1, ReportType.REGULAR, '', ReportCategory.DANGER)
         }
@@ -688,7 +887,7 @@ export class GameEngine {
     } else if (cmd === 'ATES_YASAK') {
       const soldier = unit as Soldier
       soldier.setFirePermission(FirePermission.DENIED)
-      this.radio.queueReport(unitId, 'Anlaşıldı Karargah, ateş açılmıyor. Beklemedeyiz.', this.time.toTotalMinutes(), Math.max(0.1, 1 - sig))
+      this.radio.queueReport(unitId, 'Emir anlaşıldı Karargah, tetiği çektik bekliyoruz.', this.time.toTotalMinutes(), Math.max(0.1, 1 - sig))
     } else if (cmd === 'BEKLEMEDE_KAL') {
       const soldier = unit as Soldier
       soldier.setFirePermission(FirePermission.HOLD_FIRE)
@@ -699,7 +898,7 @@ export class GameEngine {
       const ty = parseInt(parts[2])
       if (!isNaN(tx) && !isNaN(ty)) {
         unit.setPosition({ x: Math.max(0, Math.min(14, tx)), y: Math.max(0, Math.min(14, ty)) })
-        this.radio.queueReport(unitId, `Mevziye ulaşıldı. Güncel koordinatımız: ${tx}, ${ty}`, this.time.toTotalMinutes(), Math.max(0.1, 1 - sig))
+        this.radio.queueReport(unitId, `Hedef bölgeye kapak attık. Koordinatımız: ${tx}, ${ty}`, this.time.toTotalMinutes(), Math.max(0.1, 1 - sig))
         // After move, reset fire permission to detect new threats
         setTimeout(() => {
           const s = unit as Soldier
@@ -718,14 +917,17 @@ export class GameEngine {
       for (const [, enemy] of this.enemies) {
         if (!enemy.isAlive()) continue
         if (enemy.getPosition().x === tx && enemy.getPosition().y === ty) {
-          enemy.takeDamage(100) // T-129 nokta atışı tek atar
+          const dmg = enemy.getType() === EnemyType.ARMORED ? 50 : 10
+          enemy.takeDamage(dmg)
           hits++
         }
       }
+      audioManager.playHelicopter(0.1, 0)
+      setTimeout(() => audioManager.stopHelicopter(), 3000)
       if (hits > 0) {
-        this.radio.queueReport('🚁 T-129 ATAK', `Hedef koordinat (${tx},${ty}) vuruldu. ${hits} düşman unsuru yok edildi!`, this.time.toTotalMinutes(), 0.1, -1, ReportType.REGULAR, '', ReportCategory.SUCCESS)
+        this.radio.queueReport('🚁 T-129 ATAK', `Koordinat (${tx},${ty}) delik deşik edildi! ${hits} çakal cehennemi boyladı!`, this.time.toTotalMinutes(), 0.1, -1, ReportType.REGULAR, '', ReportCategory.SUCCESS)
       } else {
-        this.radio.queueReport('🚁 T-129 ATAK', `Koordinat (${tx},${ty}) temiz veya düşman hedefi tespit edilemedi. Görev tamamlandı.`, this.time.toTotalMinutes(), 0.1, -1, ReportType.REGULAR, '', ReportCategory.MISSION_SUPPORT)
+        this.radio.queueReport('🚁 T-129 ATAK', `Mıntıka temiz, helikopterimiz boşuna mermi yakıyor. Geri dönüyoruz.`, this.time.toTotalMinutes(), 0.1, -1, ReportType.REGULAR, '', ReportCategory.MISSION_SUPPORT)
       }
     } else {
       unit.receiveCommand(cmd)
@@ -752,6 +954,7 @@ export class GameEngine {
       : `Topçu koordinatı (${sx},${sy}) mıntıkasına ateş açıldı. Hedef tespit edilemedi.`
     this.radio.queueReport(fromUnitId, msg, this.time.toTotalMinutes(), Math.max(0.1, 1 - sig), -1, ReportType.REGULAR, '', hits > 0 ? ReportCategory.SUCCESS : ReportCategory.REGULAR)
     this.screenShake = true
+    audioManager.playArtilleryImpact()
     setTimeout(() => { this.screenShake = false }, 600)
   }
 
@@ -767,6 +970,15 @@ export class GameEngine {
       corrupted: false,
       type: ReportType.REGULAR,
     })
+    
+    // Check if unit is a tank and command is movement
+    const unit = this.units.get(unitId)
+    if (unit && (unit as Soldier).getRole() === SoldierRole.ARMORED && command.startsWith('git ')) {
+      audioManager.playTankMove()
+    } else {
+      audioManager.playRogerThat()
+    }
+    
     this.notify()
     return delay
   }
@@ -889,6 +1101,7 @@ export class GameEngine {
     }
 
     this.airstrikeCooldown = 40
+    audioManager.playAirStrike()
     let hits = 0
     for (const [, enemy] of this.enemies) {
       if (!enemy.isAlive()) continue
@@ -1000,7 +1213,7 @@ export class GameEngine {
     this.uh60Timer = delay.total
     this.uh60Target = { x: targetUnit.getPosition().x, y: targetUnit.getPosition().y, unitId: targetUnitId }
 
-    this.radio.queueReport(callerId, `MEDEVAC TALEBİ: UH-60 çağrıldı. İntikal süresi tahmini ${delay.total} dakika.`, this.time.toTotalMinutes(), 0.1, -1, ReportType.REGULAR, '', ReportCategory.MISSION_SUPPORT)
+    this.radio.queueReport(callerId, `KOÇYİĞİDİ ALMAYA GELİYORUZ: UH-60 havalandı. Dayanın aslanım, ${delay.total} dakikaya oradayız!`, this.time.toTotalMinutes(), 0.1, -1, ReportType.REGULAR, '', ReportCategory.MISSION_SUPPORT)
     this.notify()
   }
 
@@ -1011,8 +1224,8 @@ export class GameEngine {
         const idStr = Math.random().toString(36).substring(2, 6).toUpperCase()
         const eid = `DALGA-${idStr}`
         const e = new EnemyUnit(eid, 'Sızma Kuvveti', 60, 60, 60, EnemyType.INFANTRY)
-        const sx = Math.random() < 0.5 ? 0 : 14
-        const sy = Math.random() < 0.5 ? 0 : 14
+        const sx = Math.random() < 0.5 ? 0 : this.map.width - 1
+        const sy = Math.random() < 0.5 ? 0 : this.map.height - 1
         e.setPosition({ x: sx, y: sy })
         e.setState(EnemyState.ASSAULT_TARGET)
         e.setAssaultTarget(this.capturePoint.x, this.capturePoint.y)
@@ -1046,12 +1259,12 @@ export class GameEngine {
       const e = makeEnemy(eid, `Düşman Birliği ${eid}`, 60, 60, 60, 0, 0, enemyType, EnemyState.ASSAULT_TARGET, 10, 10)
       const spawnEdge = Math.floor(Math.random() * 4) // 0:top, 1:right, 2:bottom, 3:left
       let sx, sy
-      if (spawnEdge === 0) { sx = Math.floor(Math.random() * 15); sy = 0 }
-      else if (spawnEdge === 1) { sx = 14; sy = Math.floor(Math.random() * 15) }
-      else if (spawnEdge === 2) { sx = Math.floor(Math.random() * 15); sy = 14 }
-      else { sx = 0; sy = Math.floor(Math.random() * 15) }
+      if (spawnEdge === 0) { sx = Math.floor(Math.random() * this.map.width); sy = 0 }
+      else if (spawnEdge === 1) { sx = this.map.width - 1; sy = Math.floor(Math.random() * this.map.height) }
+      else if (spawnEdge === 2) { sx = Math.floor(Math.random() * this.map.width); sy = this.map.height - 1 }
+      else { sx = 0; sy = Math.floor(Math.random() * this.map.height) }
       e.setPosition({ x: sx, y: sy })
-      e.setAssaultTarget(7, 7) // Assume center of map for survival
+      e.setAssaultTarget(Math.floor(this.map.width / 2), Math.floor(this.map.height / 2)) // Center of map
       this.enemies.set(eid, e)
     }
 
@@ -1075,7 +1288,7 @@ export class GameEngine {
       this.addRadioMessage({
         id: crypto.randomUUID(),
         fromUnitId: '💀 SİSTEM',
-        message: 'GÖREV BAŞARISIZ! SAHADAKİ TÜM BİRLİKLERİMİZLE İLETİŞİM KESİLDİ. OPERASYON İPTAL EDİLDİ.',
+        message: 'BÖLGEDE SİNYAL KESİLDİ! Tüm birimlerle temas koptu... Allah rahmet eylesin. Operasyon başarısız.',
         sentTick: this.time.toTotalMinutes(),
         category: ReportCategory.DANGER,
         corrupted: false,
@@ -1091,7 +1304,7 @@ export class GameEngine {
       this.addRadioMessage({
         id: crypto.randomUUID(),
         fromUnitId: '🏆 KARARGAH',
-        message: 'GÖREV BAŞARILI! TÜM HEDEFLER İMHA EDİLDİ. "Elinize sağlık, bölge güvende."',
+        message: 'GÖREV TAMAM! Mıntıka çakallardan temizlendi. "Elinize kolunuza sağlık aslanlar, bölge güvende."',
         sentTick: this.time.toTotalMinutes(),
         category: ReportCategory.SUCCESS,
         corrupted: false,
@@ -1139,6 +1352,16 @@ export class GameEngine {
       uh60State: this.uh60State,
       uh60Timer: this.uh60Timer,
       uh60Target: this.uh60Target,
+      radioLog: this.radioLog,
+      pendingEngagement: this.pendingEngagement,
+      radio: this.radio.serialize(),
+      matchPhase: this.matchPhase,
+      activePlayerId: this.activePlayerId,
+      hostBudget: this.hostBudget,
+      guestBudget: this.guestBudget,
+      hostReady: this.hostReady,
+      guestReady: this.guestReady,
+      capturePointTurns: this.capturePointTurns,
     }
   }
     // ── Calculation ───────────────
@@ -1209,6 +1432,18 @@ export class GameEngine {
     } else {
       this.radio = new RadioSystem((id) => this.calculateDynamicDelay(id))
     }
+    // 1v1 state
+    this.matchPhase = (data.matchPhase as MatchPhase) || MatchPhase.PLAYING
+    this.activePlayerId = (data.activePlayerId as string) || 'host'
+    this.hostBudget = (data.hostBudget as number) ?? 1000
+    this.guestBudget = (data.guestBudget as number) ?? 1000
+    this.hostReady = (data.hostReady as boolean) || false
+    this.guestReady = (data.guestReady as boolean) || false
+    this.capturePointTurns = (data.capturePointTurns as { host: number; guest: number }) || { host: 0, guest: 0 }
+    
+    // Check if remote data triggers a transition (in case we were waiting)
+    this.checkMatchPhaseTransitions()
+    
     this.notify()
   }
 }

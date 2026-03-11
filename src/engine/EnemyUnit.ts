@@ -27,7 +27,7 @@ export class EnemyUnit extends Unit {
     this.patrolTimer = 0
   }
 
-  update(deltaTick: number): void {
+  update(deltaTick: number, mapWidth: number = 15, mapHeight: number = 15): void {
     if (!this.alive) return
     this.patrolTimer += deltaTick
 
@@ -47,8 +47,8 @@ export class EnemyUnit extends Unit {
         const dirs = [-1, 0, 1]
         const dx = dirs[Math.floor(Math.random() * 3)]
         const dy = dirs[Math.floor(Math.random() * 3)]
-        this.pos.x = Math.max(0, Math.min(14, this.pos.x + dx))
-        this.pos.y = Math.max(0, Math.min(14, this.pos.y + dy))
+        this.pos.x = Math.max(0, Math.min(mapWidth - 1, this.pos.x + dx))
+        this.pos.y = Math.max(0, Math.min(mapHeight - 1, this.pos.y + dy))
       }
     }
   }

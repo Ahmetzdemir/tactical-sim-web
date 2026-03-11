@@ -143,6 +143,7 @@ export class Soldier extends Unit {
       alive: this.alive, pos: this.pos, inCover: this.inCover,
       disobedient: this.disobedient, firePermission: this.firePermission,
       engagementTargetId: this.engagementTargetId, incapacitated: this.incapacitated,
+      ownerId: this.ownerId, actionPoints: this.actionPoints,
     }
   }
 
@@ -160,6 +161,8 @@ export class Soldier extends Unit {
     s.firePermission = data.firePermission as FirePermission
     s.engagementTargetId = data.engagementTargetId as string
     s.incapacitated = data.incapacitated as boolean
+    s.ownerId = data.ownerId as string
+    s.actionPoints = data.actionPoints as number
     return s
   }
 }

@@ -4,6 +4,7 @@
 
 import { DelayBreakdown, RadioMessage, ReportCategory, ReportType } from './types'
 import { GameTime } from './GameTime'
+import { audioManager } from '../services/AudioManager'
 
 interface PendingCommand {
   targetUnitId: string
@@ -156,6 +157,7 @@ export class RadioSystem {
           delayBreakdown: rep.delayBreakdown
         }
         newMessages.push(msg)
+        audioManager.playRadioBeep()
         if (rep.type === ReportType.ENGAGEMENT_REQUEST) {
           pendingEngagementCallback(rep.fromUnitId, rep.engagementTargetId)
         }

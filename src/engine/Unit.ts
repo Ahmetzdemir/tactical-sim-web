@@ -14,6 +14,8 @@ export abstract class Unit {
   protected alive: boolean
   protected pos: Position
   protected pendingOrders: string[] = []
+  protected ownerId: string = 'host' // 'host' or 'guest'
+  protected actionPoints: number = 2
 
   constructor(id: string, name: string, hp: number, morale: number, ammo: number) {
     this.id = id
@@ -46,6 +48,12 @@ export abstract class Unit {
   isAlive(): boolean { return this.alive }
   getPosition(): Position { return { ...this.pos } }
   setPosition(p: Position): void { this.pos = { ...p } }
+  getOwnerId(): string { return this.ownerId }
+  setOwnerId(id: string): void { this.ownerId = id }
+  getAP(): number { return this.actionPoints }
+  setAP(ap: number): void { this.actionPoints = ap }
+  consumeAP(amount: number): void { this.actionPoints = Math.max(0, this.actionPoints - amount) }
+  resetAP(): void { this.actionPoints = 2 }
   getRations(): number { return 0 }
   getMedkits(): number { return 0 }
 

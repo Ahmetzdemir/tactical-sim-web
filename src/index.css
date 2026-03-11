@@ -5,9 +5,13 @@
 @tailwind utilities;
 
 :root {
-  --mil-bg: #070d07;
-  --mil-panel: #0d150d;
-  --mil-border: #1e2e1e;
+  --mil-bg: #0A0E17;
+  --mil-panel: #111827;
+  --mil-border: rgba(0, 255, 255, 0.1);
+  --neon-green: #00FF00;
+  --neon-red: #FF0000;
+  --terminal-cyan: #00FFFF;
+  --terminal-yellow: #FFD700;
 }
 
 * {
@@ -29,19 +33,19 @@ html, body, #root {
   width: 4px;
 }
 ::-webkit-scrollbar-track {
-  background: #0d150d;
+  background: #111827;
 }
 ::-webkit-scrollbar-thumb {
-  background: #1e2e1e;
+  background: rgba(0, 255, 255, 0.2);
   border-radius: 2px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #4a5c2a;
+  background: var(--terminal-cyan);
 }
 
 /* HP bar transitions */
 .hp-bar {
-  transition: width 0.5s ease-in-out;
+  transition: width 0.3s ease-in-out;
 }
 
 /* Screen shake */
@@ -58,43 +62,57 @@ html, body, #root {
 
 /* Radio log entry animation */
 .radio-entry {
-  animation: fadeIn 0.3s ease-in;
+  animation: fadeIn 0.2s ease-in;
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(4px); }
+  from { opacity: 0; transform: translateY(2px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 
-/* Scan line effect */
-.scanlines {
+/* Scanline effect */
+.scanlines-overlay {
+  position: absolute;
+  inset: 0;
   background: repeating-linear-gradient(
     0deg,
-    transparent,
-    transparent 2px,
-    rgba(0,0,0,0.03) 2px,
-    rgba(0,0,0,0.03) 4px
+    rgba(0, 0, 0, 0),
+    rgba(0, 0, 0, 0) 2px,
+    rgba(0, 255, 255, 0.05) 2px,
+    rgba(0, 255, 255, 0.05) 4px
   );
   pointer-events: none;
+  z-index: 100;
+}
+
+/* Vignette effect */
+.vignette-overlay {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle, transparent 50%, rgba(0, 0, 0, 0.6) 100%);
+  pointer-events: none;
+  z-index: 101;
 }
 
 /* Glow effects */
-.glow-green {
-  box-shadow: 0 0 8px rgba(34, 197, 94, 0.3);
+.glow-neon-green {
+  text-shadow: 0 0 8px var(--neon-green);
+  filter: drop-shadow(0 0 4px var(--neon-green));
 }
-.glow-red {
-  box-shadow: 0 0 8px rgba(239, 68, 68, 0.3);
+.glow-neon-red {
+  text-shadow: 0 0 8px var(--neon-red);
+  filter: drop-shadow(0 0 4px var(--neon-red));
 }
-.glow-yellow {
-  box-shadow: 0 0 8px rgba(234, 179, 8, 0.3);
+.glow-terminal-cyan {
+  text-shadow: 0 0 8px var(--terminal-cyan);
 }
 
 /* Map cell hover */
 .map-cell {
-  transition: all 0.1s ease;
+  transition: background-color 0.1s ease;
 }
 .map-cell:hover {
-  filter: brightness(1.4);
+  background-color: rgba(0, 255, 255, 0.05) !important;
 }
 
 /* Corrupted text effect */
@@ -113,11 +131,79 @@ html, body, #root {
 }
 @keyframes pulseRed {
   0%, 100% { opacity: 1; }
-  50%       { opacity: 0.5; }
+  50%       { opacity: 0.3; }
 }
 
 /* Modal overlay */
 .modal-overlay {
-  background: rgba(7, 13, 7, 0.85);
-  backdrop-filter: blur(4px);
+  background: rgba(10, 14, 23, 0.9);
+  backdrop-filter: blur(8px);
+}
+
+/* Terrain Patterns */
+.texture-topo {
+  background-color: #0A0E17;
+  background-image: 
+    radial-gradient(circle at center, transparent 0, transparent 40%, rgba(255,255,255,0.05) 41%, rgba(255,255,255,0.05) 43%, transparent 44%),
+    radial-gradient(circle at center, transparent 0, transparent 70%, rgba(255,255,255,0.05) 71%, rgba(255,255,255,0.05) 73%, transparent 74%);
+}
+
+.texture-hatch {
+  background-color: #0A0E17;
+  background-image: repeating-linear-gradient(
+    45deg,
+    transparent,
+    transparent 5px,
+    rgba(26, 61, 26, 0.4) 5px,
+    rgba(26, 61, 26, 0.4) 6px
+  );
+}
+
+.texture-city-grid {
+  background-color: #0A0E17;
+  background-image: 
+    linear-gradient(rgba(0, 255, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 255, 255, 0.05) 1px, transparent 1px);
+  background-size: 4px 4px;
+}
+
+.cell-soft-border {
+  border: 1px solid rgba(0, 255, 255, 0.05);
+}
+
+/* Wavy Fog */
+.wavy-fog {
+  background: #020408;
+  position: relative;
+  overflow: hidden;
+}
+
+.wavy-fog::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-radial-gradient(
+    circle at 50% 50%,
+    rgba(0, 255, 255, 0.02) 0,
+    rgba(0, 255, 255, 0.02) 10px,
+    transparent 10px,
+    transparent 20px
+  );
+  animation: radarScan 4s linear infinite;
+  opacity: 0.5;
+}
+
+@keyframes radarScan {
+  0% { transform: scale(1); opacity: 0.2; }
+  50% { transform: scale(1.5); opacity: 0.5; }
+  100% { transform: scale(2); opacity: 0; }
+}
+
+/* Radar Terminal Status labels */
+.terminal-label {
+  font-size: 10px;
+  font-weight: bold;
+  letter-spacing: 1px;
+  color: var(--terminal-cyan);
+  opacity: 0.7;
 }

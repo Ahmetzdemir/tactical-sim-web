@@ -9,7 +9,7 @@ export class MapGrid {
   readonly width: number
   readonly height: number
 
-  constructor(w: number = 20, h: number = 20, existingGrid?: TerrainType[][]) {
+  constructor(w: number = 15, h: number = 15, existingGrid?: TerrainType[][]) {
     this.width = w
     this.height = h
     if (existingGrid) {

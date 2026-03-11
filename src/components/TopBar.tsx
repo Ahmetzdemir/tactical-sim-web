@@ -1,8 +1,15 @@
+import { useEffect } from 'react'
 import { useGameStore } from '../store/useGameStore'
 import { OPERATIONS } from '../engine/Scenario'
+import { audioManager } from '../services/AudioManager'
 
 export function TopBar() {
-  const { state, setAppPhase } = useGameStore()
+  const { state, setAppPhase, isMuted, toggleMute } = useGameStore()
+
+  useEffect(() => {
+    audioManager.setMute(isMuted)
+  }, [isMuted])
+
   if (!state) return null
 
   const { time, weather, resources, activeScenarioIndex, sandboxSettings } = state
@@ -21,6 +28,27 @@ export function TopBar() {
           [{opName}]
         </span>
       </div>
+
+      {/* 1v1 Turn Indicator */}
+      {useGameStore.getState().isMultiplayer && state.matchPhase === 'PLAYING' && (
+        <div className="flex items-center gap-2 border-l border-mil-border pl-3">
+          <span className={`px-2 py-0.5 rounded text-[10px] font-black tracking-widest ${
+            state.activePlayerId === (useGameStore.getState().isHost ? 'host' : 'guest')
+              ? 'bg-mil-cyan text-mil-bg animate-pulse'
+              : 'bg-mil-panel border border-mil-border text-mil-dim'
+          }`}>
+            {state.activePlayerId === (useGameStore.getState().isHost ? 'host' : 'guest') ? 'SIRANIZ' : 'RAKİP SIRASI'}
+          </span>
+          {state.activePlayerId === (useGameStore.getState().isHost ? 'host' : 'guest') && (
+            <button
+              onClick={() => useGameStore.getState().endTurn1v1()}
+              className="px-2 py-0.5 bg-mil-bg border border-mil-cyan text-mil-cyan text-[10px] font-bold hover:bg-mil-cyan hover:text-mil-bg transition-all"
+            >
+              TURU BİTİR
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Time */}
       <div className="flex items-center gap-1 border-l border-mil-border pl-3">
@@ -61,6 +89,13 @@ export function TopBar() {
 
       {/* Menu */}
       <div className="flex gap-2 border-l border-mil-border pl-3">
+        <button
+          onClick={toggleMute}
+          className="text-mil-dim hover:text-mil-yellow transition-colors"
+          title={isMuted ? "Sesi Aç" : "Sesi Kapat"}
+        >
+          {isMuted ? "🔇 SES: KAPALI" : "🔊 SES: AÇIK"}
+        </button>
         <button
           onClick={() => setAppPhase('save-load')}
           className="text-mil-dim hover:text-mil-green transition-colors"

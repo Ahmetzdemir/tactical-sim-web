@@ -1,12 +1,38 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useGameStore } from '../store/useGameStore'
+import { audioManager } from '../services/AudioManager'
+
 export function MainMenu() {
-  const { setAppPhase } = useGameStore()
+  const { 
+    setAppPhase, isMuted, toggleMute,
+    musicVolume, sfxVolume, setMusicVolume, setSfxVolume 
+  } = useGameStore()
+
+  useEffect(() => {
+    audioManager.stopAllGameSounds();
+    audioManager.startWarAmbience();
+  }, []);
+
   const [showCredits, setShowCredits] = useState(false)
   const [showGuide, setShowGuide] = useState(false)
+  const [showSettings, setShowSettings] = useState(false)
 
   return (
     <div className="min-h-screen w-full flex flex-col items-center justify-center bg-mil-bg relative overflow-hidden font-mono">
+      {/* Global Mute Button */}
+      <div className="absolute top-4 right-4 z-50">
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            toggleMute();
+          }}
+          className="px-3 py-1 bg-black/50 border border-mil-accent/30 text-mil-accent text-xs hover:bg-mil-accent/20 transition-colors rounded uppercase tracking-widest"
+          title={isMuted ? "Sesi Aç" : "Sesi Kapat"}
+        >
+          {isMuted ? "🔇 SES: KAPALI" : "🔊 SES: AÇIK"}
+        </button>
+      </div>
+
       {/* Scanlines overlay */}
       <div className="absolute inset-0 scanlines pointer-events-none z-20" />
 
@@ -67,12 +93,25 @@ export function MainMenu() {
           >
             Serbest Mod (Sandbox)
           </button>
+
+          <button 
+            onClick={() => setAppPhase('multiplayer-lobby')}
+            className="w-full py-4 bg-transparent border-2 border-[#00FFFF] text-[#00FFFF] font-black tracking-widest hover:bg-[#00FFFF]/10 transition-all uppercase shadow-[0_0_15px_rgba(0,255,255,0.2)]"
+          >
+            🌐 ÇEVRİMİÇİ SAVAŞ (MULTIPLAYER)
+          </button>
           <button
             id="btn-load-game"
             onClick={() => setAppPhase('save-load')}
             className="w-full py-3 px-6 bg-transparent hover:bg-mil-panel text-mil-green font-bold tracking-wider border border-mil-greenDim transition-all duration-200 text-sm"
           >
             📂 KAYIT YÜKLE
+          </button>
+          <button
+            onClick={() => setShowSettings(true)}
+            className="w-full py-2 px-6 bg-transparent hover:bg-mil-panel text-[#00FFFF] font-bold tracking-wider border border-[#00FFFF]/30 transition-all duration-200 text-xs mt-1"
+          >
+            ⚙️ SES VE GÖRÜNTÜ AYARLARI
           </button>
            <button
             onClick={() => setShowGuide(true)}
@@ -287,6 +326,80 @@ export function MainMenu() {
                 className="px-10 py-2 bg-mil-green hover:bg-mil-greenBright text-mil-bg font-black tracking-[0.2em] transition-all duration-200 uppercase text-sm shadow-[0_0_15px_rgba(34,197,94,0.3)]"
               >
                 ANLAŞILDI KOMUTAN!
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Settings Modal */}
+      {showSettings && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowSettings(false)} />
+          <div className="relative bg-[#0A0E17] border-2 border-[#00FFFF]/30 w-full max-w-sm p-6 shadow-2xl">
+            <div className="border-b border-[#00FFFF]/20 pb-3 mb-6 flex justify-between items-center">
+              <div className="text-[#00FFFF] font-bold tracking-widest text-lg uppercase font-mono">TERMINAL AYARLARI</div>
+              <button 
+                onClick={() => setShowSettings(false)} 
+                className="text-mil-dim hover:text-mil-red text-xl transition-colors font-sans"
+              >✕</button>
+            </div>
+
+            <div className="space-y-8">
+              {/* Music Volume */}
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <span className="text-mil-textBright text-xs font-bold tracking-widest">MÜZİK VE AMBİYANS</span>
+                  <span className="text-[#00FFFF] text-xs font-mono">{Math.round(musicVolume * 100)}%</span>
+                </div>
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.05"
+                  value={musicVolume}
+                  onChange={(e) => setMusicVolume(parseFloat(e.target.value))}
+                  className="w-full h-1 bg-[#111827] rounded-lg appearance-none cursor-pointer accent-[#00FFFF]"
+                  style={{ accentColor: '#00FFFF' }}
+                />
+              </div>
+
+              {/* SFX Volume */}
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <span className="text-mil-textBright text-xs font-bold tracking-widest">SES EFEKTLERİ</span>
+                  <span className="text-[#00FF00] text-xs font-mono">{Math.round(sfxVolume * 100)}%</span>
+                </div>
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.05"
+                  value={sfxVolume}
+                  onChange={(e) => setSfxVolume(parseFloat(e.target.value))}
+                  className="w-full h-1 bg-[#111827] rounded-lg appearance-none cursor-pointer accent-[#00FF00]"
+                  style={{ accentColor: '#00FF00' }}
+                />
+              </div>
+
+              {/* Global Mute Toggle */}
+              <div className="flex items-center justify-between pt-4 border-t border-[#00FFFF]/10">
+                <span className="text-mil-dim text-[10px] tracking-widest uppercase">GLOBAL SES ÇIKIŞI</span>
+                <button
+                  onClick={toggleMute}
+                  className={`px-4 py-1 border text-[10px] transition-all uppercase tracking-widest ${isMuted ? 'border-mil-red text-mil-red' : 'border-[#00FFFF]/50 text-[#00FFFF]'}`}
+                >
+                  {isMuted ? "SESSİZ" : "AKTİF"}
+                </button>
+              </div>
+            </div>
+
+            <div className="mt-8 text-center">
+              <button
+                onClick={() => setShowSettings(false)}
+                className="w-full py-2 bg-[#00FFFF]/10 border border-[#00FFFF]/50 text-[#00FFFF] font-bold text-xs tracking-widest hover:bg-[#00FFFF]/20 transition-all uppercase"
+              >
+                KAYDET VE KAPAT
               </button>
             </div>
           </div>

@@ -21,8 +21,14 @@ export function GameLayout() {
   }, [state?.activeScenarioIndex])
 
   if (!state) return (
-    <div className="h-full flex items-center justify-center text-mil-dim">
-      <span className="animate-pulse">Yükleniyor...</span>
+    <div className="h-full flex flex-col items-center justify-center text-mil-dim bg-mil-bg">
+      <div className="text-xl mb-4 animate-pulse">Yükleniyor...</div>
+      <div className="text-[10px] text-mil-border uppercase tracking-widest">
+        {useGameStore.getState().isMultiplayer ? "VERİ SENKRONİZASYONU BEKLENİYOR..." : "MOTOR BAŞLATILIYOR..."}
+      </div>
+      <div className="mt-8 text-[8px] opacity-50">
+        ROOM: {useGameStore.getState().multiplayerRoomId || 'LOCAL'}
+      </div>
     </div>
   )
 
@@ -58,6 +64,10 @@ export function GameLayout() {
       <EngagementModal />
       <VictoryScreen />
       <BriefingModal isOpen={showBriefing} onClose={() => setShowBriefing(false)} />
+      <div 
+        className="lighting-overlay" 
+        style={{ backgroundColor: state.weather.getLightingColor(state.time.hour) }} 
+      />
     </div>
   )
 }
