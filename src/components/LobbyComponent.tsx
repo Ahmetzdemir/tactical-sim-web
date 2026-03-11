@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useGameStore } from '../store/useGameStore'
 import { db } from '../services/firebase'
-import { ref, set as fbSet, onValue, get as fbGet, onDisconnect, remove } from 'firebase/database'
+import { ref, set as fbSet, onValue, get as fbGet, onDisconnect } from 'firebase/database'
 
 const generateShortId = () => {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789' // Avoid easily confused chars O, 0, I, 1
@@ -108,7 +108,6 @@ export function LobbyComponent() {
     }
 
     if (foundRoomId) {
-      const roomRef = ref(db, `rooms/${foundRoomId}`)
       await fbSet(ref(db, `rooms/${foundRoomId}/guest`), userId)
       await fbSet(ref(db, `rooms/${foundRoomId}/status`), 'active')
       // Guest disconnection cleanup: Clear guest field (but keep room for host)
