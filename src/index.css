@@ -1,0 +1,123 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --mil-bg: #070d07;
+  --mil-panel: #0d150d;
+  --mil-border: #1e2e1e;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  background-color: var(--mil-bg);
+  color: #9ca3af;
+  font-family: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+  overflow: hidden;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 4px;
+}
+::-webkit-scrollbar-track {
+  background: #0d150d;
+}
+::-webkit-scrollbar-thumb {
+  background: #1e2e1e;
+  border-radius: 2px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #4a5c2a;
+}
+
+/* HP bar transitions */
+.hp-bar {
+  transition: width 0.5s ease-in-out;
+}
+
+/* Screen shake */
+.screen-shake {
+  animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+}
+
+@keyframes shake {
+  10%, 90% { transform: translate3d(-2px, -1px, 0); }
+  20%, 80% { transform: translate3d(3px, 1px, 0); }
+  30%, 50%, 70% { transform: translate3d(-5px, -2px, 0); }
+  40%, 60% { transform: translate3d(5px, 2px, 0); }
+}
+
+/* Radio log entry animation */
+.radio-entry {
+  animation: fadeIn 0.3s ease-in;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Scan line effect */
+.scanlines {
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0,0,0,0.03) 2px,
+    rgba(0,0,0,0.03) 4px
+  );
+  pointer-events: none;
+}
+
+/* Glow effects */
+.glow-green {
+  box-shadow: 0 0 8px rgba(34, 197, 94, 0.3);
+}
+.glow-red {
+  box-shadow: 0 0 8px rgba(239, 68, 68, 0.3);
+}
+.glow-yellow {
+  box-shadow: 0 0 8px rgba(234, 179, 8, 0.3);
+}
+
+/* Map cell hover */
+.map-cell {
+  transition: all 0.1s ease;
+}
+.map-cell:hover {
+  filter: brightness(1.4);
+}
+
+/* Corrupted text effect */
+.corrupted-text {
+  text-shadow: 1px 0 #ef4444, -1px 0 #06b6d4;
+  animation: glitch 0.3s infinite;
+}
+@keyframes glitch {
+  0%, 100% { text-shadow: 1px 0 #ef4444, -1px 0 #06b6d4; }
+  50%       { text-shadow: -1px 0 #ef4444, 1px 0 #06b6d4; }
+}
+
+/* Pulse for critical */
+.pulse-red {
+  animation: pulseRed 1s ease-in-out infinite;
+}
+@keyframes pulseRed {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.5; }
+}
+
+/* Modal overlay */
+.modal-overlay {
+  background: rgba(7, 13, 7, 0.85);
+  backdrop-filter: blur(4px);
+}
