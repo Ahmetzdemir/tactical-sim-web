@@ -3,7 +3,8 @@
 // ============================================================
 
 import { Unit } from './Unit'
-import { EnemyType, EnemyState, Position } from './types'
+import { EnemyType, EnemyState, Position, TerrainType } from './types'
+import { MapGrid } from './MapGrid'
 
 export class EnemyUnit extends Unit {
   private state: EnemyState = EnemyState.PATROL
@@ -27,7 +28,7 @@ export class EnemyUnit extends Unit {
     this.patrolTimer = 0
   }
 
-  update(deltaTick: number, mapWidth: number = 15, mapHeight: number = 15): void {
+  update(deltaTick: number, map?: MapGrid, mapWidth: number = 15, mapHeight: number = 15): void {
     if (!this.alive) return
     this.patrolTimer += deltaTick
 
@@ -35,10 +36,16 @@ export class EnemyUnit extends Unit {
     if (this.state === EnemyState.ASSAULT_TARGET && this.hasAssaultTarget) {
       if (this.patrolTimer >= 3) {
         this.patrolTimer = 0
-        const dx = this.assaultTarget.x - this.pos.x
-        const dy = this.assaultTarget.y - this.pos.y
-        if (dx !== 0) this.pos.x += dx > 0 ? 1 : -1
-        else if (dy !== 0) this.pos.y += dy > 0 ? 1 : -1
+        const path = map ? map.findPath(this.pos, this.assaultTarget) : []
+        if (path.length > 1) {
+          this.pos.x = path[1].x
+          this.pos.y = path[1].y
+        } else {
+          const dx = this.assaultTarget.x - this.pos.x
+          const dy = this.assaultTarget.y - this.pos.y
+          if (dx !== 0) this.pos.x += dx > 0 ? 1 : -1
+          else if (dy !== 0) this.pos.y += dy > 0 ? 1 : -1
+        }
       }
     } else if (this.state === EnemyState.PATROL) {
       // Random patrol movement every 5 ticks
@@ -47,8 +54,12 @@ export class EnemyUnit extends Unit {
         const dirs = [-1, 0, 1]
         const dx = dirs[Math.floor(Math.random() * 3)]
         const dy = dirs[Math.floor(Math.random() * 3)]
-        this.pos.x = Math.max(0, Math.min(mapWidth - 1, this.pos.x + dx))
-        this.pos.y = Math.max(0, Math.min(mapHeight - 1, this.pos.y + dy))
+        const nx = Math.max(0, Math.min(mapWidth - 1, this.pos.x + dx))
+        const ny = Math.max(0, Math.min(mapHeight - 1, this.pos.y + dy))
+        if (!map || map.getTerrain(nx, ny) !== TerrainType.MOUNTAIN) {
+          this.pos.x = nx
+          this.pos.y = ny
+        }
       }
     }
   }

@@ -28,7 +28,7 @@ export abstract class Unit {
     this.pos = { x: 0, y: 0 }
   }
 
-  abstract update(deltaTick: number): void
+  abstract update(deltaTick: number, map?: any, mapWidth?: number, mapHeight?: number): void
 
   receiveCommand(command: string): void {
     this.pendingOrders.push(command)

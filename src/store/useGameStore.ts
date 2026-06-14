@@ -3,7 +3,7 @@
 // ============================================================
 
 import { create } from 'zustand'
-import { GameEngine, GameState } from '../engine/GameEngine'
+import { GameEngine, GameState, AttackRoute } from '../engine/GameEngine'
 import { Soldier } from '../engine/Soldier'
 import {
   SupplyType, SandboxSettings, SoldierRole
@@ -16,6 +16,7 @@ interface GameStore {
   state: GameState | null
   selectedUnitId: string | null
   selectedEnemyId: string | null
+  attackMode: boolean
   appPhase: 'menu' | 'scenario-select' | 'playing' | 'save-load' | 'sandbox-lobby' | 'drafting' | 'multiplayer-lobby' | 'draft-1v1'
   sandboxSettings: SandboxSettings | null
   draftedUnits: Soldier[]
@@ -51,6 +52,8 @@ interface GameStore {
   selectEnemy: (id: string | null) => void
   moveUnit: (unitId: string, x: number, y: number) => void
   fireAtEnemy: (unitId: string) => void
+  attackMoveToEnemy: (unitId: string, enemyId: string) => void
+  setAttackMode: (mode: boolean) => void
   issueFirePermission: (decision: 'ATES_IZNI_VERILDI' | 'ATES_YASAK' | 'BEKLEMEDE_KAL') => void
   requestSupply: (unitId: string, type: SupplyType, amount: number) => void
   artilleryAt: (x: number, y: number) => void
@@ -78,6 +81,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   state: null,
   selectedUnitId: null,
   selectedEnemyId: null,
+  attackMode: false,
   appPhase: 'menu',
   sandboxSettings: null,
   draftedUnits: [],
@@ -248,6 +252,18 @@ export const useGameStore = create<GameStore>((set, get) => ({
     engine.fireAtUnit(unitId)
     set({ state: engine.getState() })
     syncState()
+  },
+
+  attackMoveToEnemy: (unitId: string, enemyId: string) => {
+    const { engine, syncState } = get()
+    if (!engine) return
+    engine.setAttackRoute(unitId, enemyId)
+    set({ state: engine.getState(), attackMode: false })
+    syncState()
+  },
+
+  setAttackMode: (mode: boolean) => {
+    set({ attackMode: mode })
   },
 
   issueFirePermission: (decision) => {

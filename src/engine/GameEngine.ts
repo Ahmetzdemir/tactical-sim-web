@@ -19,6 +19,13 @@ import {
   ScenarioPhase, ObjectiveType, SandboxSettings, WeatherType, MatchPhase, roleToString
 } from './types'
 
+export interface AttackRoute {
+  unitId: string
+  targetEnemyId: string
+  path: Position[]
+  currentStep: number
+}
+
 export interface GameState {
   time: GameTime
   units: Map<string, Soldier>
@@ -27,6 +34,7 @@ export interface GameState {
   resources: ResourceManager
   weather: WeatherSystem
   radioLog: RadioMessage[]
+  signalStrength: number
   pendingEngagement: PendingEngagement | null
   victoryAchieved: boolean
   defeatAchieved: boolean
@@ -59,6 +67,7 @@ export interface GameState {
   hostReady: boolean
   guestReady: boolean
   capturePointTurns: { host: number; guest: number }
+  attackRoutes: Map<string, AttackRoute>
 }
 
 export type GameStateListener = (state: GameState) => void
@@ -98,6 +107,7 @@ export class GameEngine {
   private survivalWaveCounter: number = 0
   private combatActiveTimer: number = 0
   private discoveredTiles: Set<string> = new Set()
+  private attackRoutes: Map<string, AttackRoute> = new Map()
 
   // 1v1 Multiplayer properties
   private matchPhase: MatchPhase = MatchPhase.PLAYING // Default for solo
@@ -170,6 +180,8 @@ export class GameEngine {
       hostReady: this.hostReady,
       guestReady: this.guestReady,
       capturePointTurns: { ...this.capturePointTurns },
+      signalStrength: this.radio.getSignalStrength(),
+      attackRoutes: new Map(this.attackRoutes),
     }
   }
 
@@ -566,13 +578,8 @@ export class GameEngine {
         
         let riskProbability = 0.05
         if (this.uh60Target) {
-          for (const [, e] of this.enemies) {
-            if (e.isAlive()) {
-              const dx = e.getPosition().x - this.uh60Target.x
-              const dy = e.getPosition().y - this.uh60Target.y
-              if (Math.abs(dx) <= 2 && Math.abs(dy) <= 2) riskProbability += 0.20
-            }
-          }
+          const sig = this.map.calcSignalFactor({ x: 0, y: 0 }, { x: this.uh60Target.x, y: this.uh60Target.y }) * this.weather.getSignalModifier()
+          riskProbability = Math.max(0.05, Math.min(0.80, 1 - sig))
         }
 
         if (Math.random() < riskProbability) {
@@ -654,9 +661,47 @@ export class GameEngine {
         unit.update(1)
       }
 
+      // Process attack routes (move units toward targets)
+      for (const [unitId, route] of this.attackRoutes) {
+        const unit = this.units.get(unitId)
+        const enemy = this.enemies.get(route.targetEnemyId)
+
+        // Cancel route if unit died, enemy died, or we ran out of steps
+        if (!unit || !unit.isAlive() || !enemy || !enemy.isAlive()) {
+          this.attackRoutes.delete(unitId)
+          continue
+        }
+
+        const unitPos = unit.getPosition()
+        const enemyPos = enemy.getPosition()
+        const dx = enemyPos.x - unitPos.x
+        const dy = enemyPos.y - unitPos.y
+        const dist = Math.sqrt(dx * dx + dy * dy)
+
+        // Already in attack range? Fire and clear route
+        if (dist <= 3.0) {
+          const res = CombatSystem.resolveAttack(unit as Soldier, enemy, this.map)
+          this.combatActiveTimer = 10
+          const sig = this.map.calcSignalFactor({ x: 0, y: 0 }, unitPos) * this.weather.getSignalModifier()
+          this.radio.queueReport(unitId, `Hedefe ulaşıldı! ${res.reportMessage}`, this.time.toTotalMinutes(), Math.max(0.1, 1 - sig), -1, ReportType.REGULAR, '', res.category)
+          this.attackRoutes.delete(unitId)
+          continue
+        }
+
+        // Move one step along the route
+        if (route.currentStep < route.path.length) {
+          const nextPos = route.path[route.currentStep]
+          unit.setPosition({ x: Math.max(0, Math.min(this.map.width - 1, nextPos.x)), y: Math.max(0, Math.min(this.map.height - 1, nextPos.y)) })
+          route.currentStep++
+        } else {
+          // Route exhausted but still not in range — clear it
+          this.attackRoutes.delete(unitId)
+        }
+      }
+
       // Update enemies & try enemy attacks
       for (const [, enemy] of this.enemies) {
-        enemy.update(1, this.map.width, this.map.height)
+        enemy.update(1, this.map, this.map.width, this.map.height)
         if (!enemy.isAlive()) continue
 
         for (const [playerId, playerUnit] of this.units) {
@@ -709,6 +754,18 @@ export class GameEngine {
             
             // Communication Loss ROE Handling
             if (sig < 0.2) {
+              const prevPerm = soldier.getFirePermission();
+              if (prevPerm !== FirePermission.PERMITTED) {
+                this.addRadioMessage({
+                  id: crypto.randomUUID(),
+                  fromUnitId: '📡 SİSTEM',
+                  message: `[BAĞLANTI KAYBI] ${soldier.getName()} telsiz sinyali %20 altına düştü. Birim otomatik olarak Serbest Atış ROE protokolüne geçti!`,
+                  sentTick: currentSimTime,
+                  category: ReportCategory.DANGER,
+                  corrupted: false,
+                  type: ReportType.REGULAR,
+                });
+              }
               soldier.setFirePermission(FirePermission.PERMITTED)
               soldier.setEngagementTargetId(eid)
               this.radio.queueReport(
@@ -1030,6 +1087,75 @@ export class GameEngine {
 
   fireAtUnit(unitId: string): void {
     this.sendRadioCommand(unitId, 'ates')
+  }
+
+  setAttackRoute(unitId: string, enemyId: string): void {
+    const unit = this.units.get(unitId)
+    const enemy = this.enemies.get(enemyId)
+    if (!unit || !enemy || !unit.isAlive() || !enemy.isAlive()) return
+
+    const unitPos = unit.getPosition()
+    const enemyPos = enemy.getPosition()
+
+    // Check if already in attack range (distance <= 3)
+    const dx = enemyPos.x - unitPos.x
+    const dy = enemyPos.y - unitPos.y
+    const dist = Math.sqrt(dx * dx + dy * dy)
+    if (dist <= 3.0) {
+      // Already in range, fire directly
+      unit.setEngagementTargetId(enemyId)
+      this.sendRadioCommand(unitId, 'ates')
+      return
+    }
+
+    // Compute A* path to the enemy position
+    const path = this.map.findPath(unitPos, enemyPos)
+    if (path.length <= 1) {
+      this.addRadioMessage({
+        id: crypto.randomUUID(),
+        fromUnitId: `📡 SİSTEM`,
+        message: `${unitId}: Hedefe ulaşılamıyor. Engelli arazi mevcut!`,
+        sentTick: this.time.toTotalMinutes(),
+        category: ReportCategory.DANGER,
+        corrupted: false,
+        type: ReportType.REGULAR,
+      })
+      this.notify()
+      return
+    }
+
+    // Store the route (skip the first element which is the current position)
+    const route: AttackRoute = {
+      unitId,
+      targetEnemyId: enemyId,
+      path: path.slice(1), // Remove starting position
+      currentStep: 0,
+    }
+    this.attackRoutes.set(unitId, route)
+
+    // Set engagement target on soldier
+    unit.setEngagementTargetId(enemyId)
+
+    this.addRadioMessage({
+      id: crypto.randomUUID(),
+      fromUnitId: `📡 TELSİZ`,
+      message: `→ ${unitId}: Saldırı rotası belirlendi! Hedef: ${enemy.getName()} (${enemyPos.x},${enemyPos.y}). ${path.length - 1} adım.`,
+      sentTick: this.time.toTotalMinutes(),
+      category: ReportCategory.MISSION_SUPPORT,
+      corrupted: false,
+      type: ReportType.REGULAR,
+    })
+    audioManager.playRogerThat()
+    this.notify()
+  }
+
+  cancelAttackRoute(unitId: string): void {
+    this.attackRoutes.delete(unitId)
+    this.notify()
+  }
+
+  getAttackRoutes(): Map<string, AttackRoute> {
+    return this.attackRoutes
   }
 
   artilleryAt(x: number, y: number): void {

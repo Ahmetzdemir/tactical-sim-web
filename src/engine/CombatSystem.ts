@@ -38,6 +38,14 @@ function calculateHitChance(
 }
 
 export const CombatSystem = {
+  estimateHitChance(attacker: any, defender: any, map: MapGrid): number {
+    const isAttackerFriendly = attacker instanceof Soldier;
+    const baseChance = isAttackerFriendly ? 50 : 40;
+    const defenderInCover = (!isAttackerFriendly && typeof defender.isInCover === 'function') ? defender.isInCover() : false;
+    const defTerrain = map.getTerrain(defender.getPosition().x, defender.getPosition().y);
+    return calculateHitChance(baseChance, attacker.getMorale(), defenderInCover, defTerrain);
+  },
+
   resolveAttack(attacker: Soldier, defender: EnemyUnit, map: MapGrid): CombatResult {
     const result: CombatResult = { attackHit: false, defenderKilled: false, damageDealt: 0, reportMessage: '', category: ReportCategory.REGULAR, enemyTauntMessage: '' }
     if (!attacker.isAlive() || !defender.isAlive()) return result

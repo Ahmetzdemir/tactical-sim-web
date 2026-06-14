@@ -92,6 +92,90 @@ export class MapGrid {
     }
   }
 
+  findPath(start: Position, end: Position): Position[] {
+    interface AStarNode {
+      x: number
+      y: number
+      g: number
+      h: number
+      f: number
+      parent: AStarNode | null
+    }
+
+    const openList: AStarNode[] = []
+    const closedList = new Set<string>()
+
+    const startNode: AStarNode = {
+      x: start.x,
+      y: start.y,
+      g: 0,
+      h: Math.abs(start.x - end.x) + Math.abs(start.y - end.y),
+      f: Math.abs(start.x - end.x) + Math.abs(start.y - end.y),
+      parent: null,
+    }
+    openList.push(startNode)
+
+    while (openList.length > 0) {
+      openList.sort((a, b) => a.f - b.f)
+      const currentNode = openList.shift()!
+      closedList.add(`${currentNode.x},${currentNode.y}`)
+
+      if (currentNode.x === end.x && currentNode.y === end.y) {
+        const path: Position[] = []
+        let curr: AStarNode | null = currentNode
+        while (curr !== null) {
+          path.push({ x: curr.x, y: curr.y })
+          curr = curr.parent
+        }
+        return path.reverse()
+      }
+
+      const directions = [
+        { dx: 0, dy: -1 },
+        { dx: 0, dy: 1 },
+        { dx: -1, dy: 0 },
+        { dx: 1, dy: 0 },
+      ]
+
+      for (const dir of directions) {
+        const nx = currentNode.x + dir.dx
+        const ny = currentNode.y + dir.dy
+
+        if (nx < 0 || nx >= this.width || ny < 0 || ny >= this.height) continue
+
+        const terrain = this.getTerrain(nx, ny)
+        if (terrain === TerrainType.MOUNTAIN) continue
+
+        const key = `${nx},${ny}`
+        if (closedList.has(key)) continue
+
+        const gScore = currentNode.g + 1
+        const hScore = Math.abs(nx - end.x) + Math.abs(ny - end.y)
+        const fScore = gScore + hScore
+
+        const existingNode = openList.find(node => node.x === nx && node.y === ny)
+        if (existingNode && gScore >= existingNode.g) continue
+
+        if (existingNode) {
+          existingNode.g = gScore
+          existingNode.f = fScore
+          existingNode.parent = currentNode
+        } else {
+          openList.push({
+            x: nx,
+            y: ny,
+            g: gScore,
+            h: hScore,
+            f: fScore,
+            parent: currentNode,
+          })
+        }
+      }
+    }
+
+    return []
+  }
+
   static deserialize(data: { grid: TerrainType[][], width: number, height: number }): MapGrid {
     return new MapGrid(data.width, data.height, data.grid)
   }

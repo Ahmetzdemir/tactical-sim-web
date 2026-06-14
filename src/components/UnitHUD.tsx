@@ -1,7 +1,9 @@
 import { useGameStore } from '../store/useGameStore'
 import { Soldier } from '../engine/Soldier'
 import { EnemyUnit } from '../engine/EnemyUnit'
-import { SoldierRole, FirePermission, SupplyType, roleToString, roleToIcon, enemyTypeToString, enemyStateToString } from '../engine/types'
+import { SoldierRole, FirePermission, SupplyType, roleToString, enemyTypeToString, enemyStateToString } from '../engine/types'
+import { CombatSystem } from '../engine/CombatSystem'
+import { NatoUnitIcon } from './NatoUnitIcon'
 
 function StatBar({ value, max, color }: { value: number; max: number; color: string }) {
   const pct = Math.max(0, Math.min(100, (value / max) * 100))
@@ -48,7 +50,7 @@ function getPassiveAbility(role: SoldierRole): string {
 
 
 export function UnitHUD() {
-  const { state, selectedUnitId, selectedEnemyId, requestSupply, sendCommand, fireAtEnemy } = useGameStore()
+  const { state, selectedUnitId, selectedEnemyId, requestSupply, sendCommand, fireAtEnemy, setAttackMode } = useGameStore()
 
   if (!state) return null
 
@@ -65,8 +67,19 @@ export function UnitHUD() {
         </div>
         <div className="flex-1 p-3 overflow-y-auto">
           <div className="border border-mil-border bg-mil-panel p-3 mb-3">
-            <div className="text-mil-red font-bold text-sm mb-1">{selectedEnemy.getName()}</div>
-            <div className="text-mil-dim text-xs">[{selectedEnemyId}] — {enemyTypeToString(selectedEnemy.getType())}</div>
+            <div className="flex items-center gap-3">
+              <NatoUnitIcon
+                type={selectedEnemy.getType()}
+                isEnemy={true}
+                isAlive={selectedEnemy.isAlive()}
+                size={36}
+                className="drop-shadow-[0_0_8px_rgba(239,68,68,0.5)]"
+              />
+              <div>
+                <div className="text-mil-red font-bold text-sm mb-1">{selectedEnemy.getName()}</div>
+                <div className="text-mil-dim text-xs">[{selectedEnemyId}] — {enemyTypeToString(selectedEnemy.getType())}</div>
+              </div>
+            </div>
           </div>
           <div className="space-y-3">
             <div>
@@ -113,7 +126,12 @@ export function UnitHUD() {
               return (
                 <div key={id} className="border border-mil-border p-2 text-left text-xs">
                   <div className="flex items-center gap-2">
-                    <span className="text-sm">{roleToIcon(s.getRole())}</span>
+                    <NatoUnitIcon
+                      role={s.getRole()}
+                      isEnemy={false}
+                      isAlive={s.isAlive()}
+                      size={18}
+                    />
                     <div className="flex flex-col">
                       <span className={`font-bold ${s.isAlive() ? 'text-mil-green' : 'text-mil-dim line-through'}`}>{id}</span>
                       <span className="text-[9px] text-mil-dim uppercase tracking-tighter">{roleToString(s.getRole())}</span>
@@ -161,7 +179,13 @@ export function UnitHUD() {
         {/* Unit identity card */}
         <div className="border border-mil-border bg-mil-panel p-3">
           <div className="flex items-center gap-3 mb-2">
-            <span className="text-3xl drop-shadow-[0_0_8px_rgba(34,197,94,0.5)]">{roleToIcon(selectedUnit.getRole())}</span>
+            <NatoUnitIcon
+              role={selectedUnit.getRole()}
+              isEnemy={false}
+              isAlive={selectedUnit.isAlive()}
+              size={36}
+              className="drop-shadow-[0_0_8px_rgba(34,197,94,0.5)]"
+            />
             <div>
               <div className="text-mil-textBright font-bold text-sm tracking-tight">{selectedUnit.getName()}</div>
               <div className="text-mil-green font-bold text-[10px] tracking-widest uppercase">
@@ -176,7 +200,7 @@ export function UnitHUD() {
             <span className="text-mil-text text-[10px] uppercase tracking-tighter">{getPassiveAbility(selectedUnit.getRole())}</span>
           </div>
 
-          <div className="text-xs flex gap-3 flex-wrap">
+          <div className="text-xs flex gap-2 flex-wrap items-center">
             <span className={selectedUnit.isAlive() ? 'text-mil-green' : 'text-mil-red font-bold'}>
               {selectedUnit.isAlive() ? '● AKTİF' : '✕ DÜŞTÜ'}
             </span>
@@ -186,10 +210,19 @@ export function UnitHUD() {
             {selectedUnit.isInCover() && (
               <span className="text-mil-cyan">🛡 SİPERDE</span>
             )}
+            {selectedUnit.isUnderFire() && (
+              <span className="text-mil-yellow bg-yellow-950/20 px-1.5 py-0.5 border border-mil-yellow animate-pulse text-[10px] font-bold">● BASKI ALTINDA</span>
+            )}
             {selectedUnit.isDisobedient() && (
               <span className="text-mil-red">⚠ İTAATSİZ</span>
             )}
           </div>
+
+          {selectedUnit.getRole() === SoldierRole.SNIPER && selectedUnit.getMorale() <= 40 && (
+            <div className="mt-2 text-[10px] bg-red-950/40 border border-mil-red p-2 text-mil-red animate-pulse">
+              ⚠️ STRES KİLİDİ: Moral çok düşük (≤40). Sniper ateş edemez!
+            </div>
+          )}
         </div>
 
         {/* Stats */}
@@ -212,8 +245,11 @@ export function UnitHUD() {
           </div>
           <div>
             <div className="flex justify-between text-xs mb-1">
-              <span className="text-mil-dim">CEPHANe</span>
-              <span className="text-mil-cyan font-bold">{selectedUnit.getAmmo()}</span>
+              <span className="text-mil-dim">CEPHANE</span>
+              <span className="text-mil-cyan font-bold">
+                {selectedUnit.getAmmo()}{' '}
+                <span className="text-[9px] text-slate-500 font-normal">(Atış: -3)</span>
+              </span>
             </div>
             <StatBar value={selectedUnit.getAmmo()} max={selectedUnit.getRole() === SoldierRole.MG ? 400 : selectedUnit.getRole() === SoldierRole.ARMORED ? 300 : 120} color="#06b6d4" />
           </div>
@@ -229,6 +265,23 @@ export function UnitHUD() {
           </div>
         </div>
 
+        {/* Active Target and Hit Chance */}
+        {(() => {
+          const targetId = selectedUnit.getEngagementTargetId()
+          const targetEnemy = targetId ? state.enemies.get(targetId) : null
+          if (!targetEnemy || !targetEnemy.isAlive()) return null
+          const hitChance = CombatSystem.estimateHitChance(selectedUnit, targetEnemy, state.mapGrid)
+          return (
+            <div className="border border-mil-border bg-mil-panel p-2 rounded-sm">
+              <div className="text-mil-dim text-[10px] uppercase font-bold tracking-widest mb-1">HEDEF ANGAJMANI</div>
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-mil-text font-semibold">{targetEnemy.getName()}</span>
+                <span className="text-mil-green font-bold bg-green-950/30 px-1 border border-mil-green/30">İSABET: %{hitChance}</span>
+              </div>
+            </div>
+          )
+        })()}
+
         {/* ROE Status */}
         <div className="border border-mil-border p-2">
           <div className="text-mil-dim text-xs mb-1">ATIŞA KURAL (ROE)</div>
@@ -242,10 +295,11 @@ export function UnitHUD() {
                 🛡 Siper
               </button>
               <button
-                onClick={() => fireAtEnemy(selectedUnitId!)}
-                className="flex-1 text-xs py-1 border border-mil-border text-mil-red hover:bg-red-950/20 transition-all"
+                onClick={() => setAttackMode(true)}
+                className="flex-1 text-xs py-1 border border-mil-border text-[#FF8C00] hover:bg-orange-950/20 transition-all"
+                title="Haritadan bir düşman seçerek saldırı rotası oluşturun"
               >
-                🔫 Ateş
+                ⚔️ Saldır
               </button>
             </div>
           )}

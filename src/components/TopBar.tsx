@@ -62,6 +62,20 @@ export function TopBar() {
         <span className="text-mil-cyan">{weather.getWeatherName()}</span>
       </div>
 
+      {/* Telsiz Sinyal Gücü */}
+      <div className="flex items-center gap-1.5 border-l border-mil-border pl-3">
+        <span className="text-mil-dim">📡</span>
+        <span className="text-mil-dim">Sinyal:</span>
+        <span className={`font-bold tracking-wider ${state.signalStrength < 0.2 ? 'text-mil-red animate-pulse' : state.signalStrength < 0.5 ? 'text-mil-yellow' : 'text-mil-green'}`}>
+          {Math.round(state.signalStrength * 100)}%
+        </span>
+        {state.signalStrength < 0.2 && (
+          <span className="text-mil-red font-black text-[9px] bg-red-950/20 px-1 border border-mil-red/30 animate-pulse uppercase tracking-tighter">
+            OTOMATİK ROE
+          </span>
+        )}
+      </div>
+
       {/* Resources */}
       <div className="flex items-center gap-4 border-l border-mil-border pl-4 ml-auto">
         <span className={`flex items-center gap-1.5 ${rationsCritical ? 'text-mil-red pulse-red' : 'text-mil-text'}`}
