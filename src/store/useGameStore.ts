@@ -3,7 +3,7 @@
 // ============================================================
 
 import { create } from 'zustand'
-import { GameEngine, GameState, AttackRoute } from '../engine/GameEngine'
+import { GameEngine, GameState } from '../engine/GameEngine'
 import { Soldier } from '../engine/Soldier'
 import {
   SupplyType, SandboxSettings, SoldierRole

@@ -50,7 +50,7 @@ function getPassiveAbility(role: SoldierRole): string {
 
 
 export function UnitHUD() {
-  const { state, selectedUnitId, selectedEnemyId, requestSupply, sendCommand, fireAtEnemy, setAttackMode } = useGameStore()
+  const { state, selectedUnitId, selectedEnemyId, requestSupply, sendCommand, setAttackMode } = useGameStore()
 
   if (!state) return null
 
