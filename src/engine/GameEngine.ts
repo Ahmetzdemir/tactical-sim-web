@@ -1563,7 +1563,7 @@ export class GameEngine {
                       type: ReportType.REGULAR,
                     })
 
-                    for (const [uid, u] of this.units) {
+                    for (const [, u] of this.units) {
                       if (u.isAlive()) {
                         const ux = u.getPosition().x - at.x
                         const uy = u.getPosition().y - at.y
@@ -1573,7 +1573,7 @@ export class GameEngine {
                         }
                       }
                     }
-                    for (const [eid, eUnit] of this.enemies) {
+                    for (const [, eUnit] of this.enemies) {
                       if (eUnit.isAlive()) {
                         const ex = eUnit.getPosition().x - at.x
                         const ey = eUnit.getPosition().y - at.y
@@ -2177,21 +2177,21 @@ export class GameEngine {
       const unitPos = soldier.getPosition()
       const tileTerrain = this.map.getTerrain(unitPos.x, unitPos.y)
 
-      const costs = {
+      const costs: Partial<Record<TerrainType, number>> = {
         [TerrainType.FOB_COMMAND]: 3,
         [TerrainType.FOB_HOSPITAL]: 2,
         [TerrainType.FOB_SUPPLY]: 2,
         [TerrainType.FOB_SANDBAGS]: 1
       }
-      const durations = {
+      const durations: Partial<Record<TerrainType, number>> = {
         [TerrainType.FOB_COMMAND]: 10,
         [TerrainType.FOB_HOSPITAL]: 6,
         [TerrainType.FOB_SUPPLY]: 4,
         [TerrainType.FOB_SANDBAGS]: 2
       }
 
-      const cost = costs[structureType]
-      const duration = durations[structureType]
+      const cost = costs[structureType] ?? 0
+      const duration = durations[structureType] ?? 0
 
       if (soldier.getRole() !== SoldierRole.ENGINEER) {
         this.radio.queueReport(unitId, `HATA: Sadece İstihkam (Engineer) birimleri yapı inşa edebilir!`, this.time.toTotalMinutes(), 0.0, -1, ReportType.REGULAR, '', ReportCategory.DANGER)
