@@ -9,8 +9,8 @@ export function EngagementModal() {
   const enemy = state.enemies.get(enemyId)
 
   return (
-    <div className="fixed inset-0 modal-overlay z-50 flex items-center justify-center p-4">
-      <div className="border border-mil-yellow bg-mil-panel max-w-sm w-full glow-yellow">
+    <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 flex items-center justify-center pointer-events-none w-full max-w-md px-4">
+      <div className="border border-mil-yellow bg-mil-panel w-full glow-yellow pointer-events-auto shadow-2xl">
         {/* Header */}
         <div className="bg-yellow-950/40 px-4 py-2 border-b border-mil-yellow flex items-center gap-2">
           <span className="text-mil-yellow animate-pulse">⚠</span>

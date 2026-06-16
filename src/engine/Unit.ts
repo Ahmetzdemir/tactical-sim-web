@@ -42,7 +42,9 @@ export abstract class Unit {
   getId(): string { return this.id }
   getName(): string { return this.name }
   getHp(): number { return this.hp }
+  setHp(hp: number): void { this.hp = hp }
   getMaxHp(): number { return this.maxHp }
+  setMaxHp(maxHp: number): void { this.maxHp = maxHp }
   getMorale(): number { return this.morale }
   getAmmo(): number { return this.ammo }
   isAlive(): boolean { return this.alive }

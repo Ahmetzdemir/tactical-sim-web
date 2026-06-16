@@ -10,12 +10,15 @@ export class Soldier extends Unit {
   private rations: number
   private medkitCount: number
   private inCover: boolean = false
-  private disobedient: boolean = false
   private tickAccumulator: number = 0
   private firePermission: FirePermission = FirePermission.UNDEFINED
   private engagementTargetId: string = ''
   private incapacitated: boolean = false
   private underFireDuration: number = 0
+  private hasPortableRadio: boolean = true
+  private constructionMaterials: number = 0
+  private carryingUnitId: string = ''
+  private carriedByUnitId: string = ''
 
   constructor(
     id: string,
@@ -31,6 +34,9 @@ export class Soldier extends Unit {
     this.role = role
     this.rations = rations
     this.medkitCount = medkits
+    if (role === SoldierRole.ENGINEER) {
+      this.constructionMaterials = 1
+    }
   }
 
   update(deltaTick: number): void {
@@ -41,7 +47,6 @@ export class Soldier extends Unit {
       this.consumeRations()
       this.tickAccumulator -= 60
     }
-    this.checkDisobedience()
 
     if (this.underFireDuration > 0) {
       this.underFireDuration -= deltaTick
@@ -64,10 +69,6 @@ export class Soldier extends Unit {
     }
   }
 
-  private checkDisobedience(): void {
-    this.disobedient = this.morale < 20
-  }
-
   override receiveCommand(command: string): void {
     if (command === 'siper') {
       this.inCover = true
@@ -83,22 +84,29 @@ export class Soldier extends Unit {
     const roleName = roleToString(this.role)
     const coverStr = this.inCover ? ' [SİPER]' : ''
     const incapStr = this.incapacitated ? ' [YARALANDI]' : ''
-    const statusStr = !this.alive ? '[DÜŞTÜ]' : this.disobedient ? '[İTAATSİZ]' : '[AKTİF]'
+    const statusStr = !this.alive ? '[DÜŞTÜ]' : '[AKTİF]'
     return `[${this.id}] ${this.name} (${roleName}) | HP:${this.hp}/${this.maxHp} | Moral:${this.morale} | Cph:${this.ammo} | Erzak:${this.rations} | Mdkt:${this.medkitCount}${coverStr}${incapStr} ${statusStr}`
   }
 
   override getRations(): number { return this.rations }
   override getMedkits(): number { return this.medkitCount }
 
-  override resupply(ammo: number, rations: number, medkits: number): void {
+  override resupply(ammo: number, rations: number, medkits: number, constructionMaterials: number = 0): void {
     this.ammo += ammo
     this.rations += rations
     this.medkitCount += medkits
+    this.constructionMaterials += constructionMaterials
   }
+
+  getConstructionMaterials(): number { return this.constructionMaterials }
+  setConstructionMaterials(val: number): void { this.constructionMaterials = val }
+  getCarryingUnitId(): string { return this.carryingUnitId }
+  setCarryingUnitId(id: string): void { this.carryingUnitId = id }
+  getCarriedByUnitId(): string { return this.carriedByUnitId }
+  setCarriedByUnitId(id: string): void { this.carriedByUnitId = id }
 
   getRole(): SoldierRole { return this.role }
   isInCover(): boolean { return this.inCover }
-  isDisobedient(): boolean { return this.disobedient }
   isIncapacitated(): boolean { return this.incapacitated }
   setInCover(cover: boolean): void { this.inCover = cover }
 
@@ -110,6 +118,10 @@ export class Soldier extends Unit {
 
   getEngagementTargetId(): string { return this.engagementTargetId }
   setEngagementTargetId(id: string): void { this.engagementTargetId = id }
+
+  getHasPortableRadio(): boolean { return this.hasPortableRadio }
+  setHasPortableRadio(val: boolean): void { this.hasPortableRadio = val }
+
 
   override takeDamage(dmg: number): void {
     this.hp = Math.max(0, this.hp - dmg)
@@ -141,9 +153,13 @@ export class Soldier extends Unit {
       hp: this.hp, maxHp: this.maxHp, morale: this.morale, ammo: this.ammo,
       rations: this.rations, medkitCount: this.medkitCount,
       alive: this.alive, pos: this.pos, inCover: this.inCover,
-      disobedient: this.disobedient, firePermission: this.firePermission,
+      firePermission: this.firePermission,
       engagementTargetId: this.engagementTargetId, incapacitated: this.incapacitated,
       ownerId: this.ownerId, actionPoints: this.actionPoints,
+      hasPortableRadio: this.hasPortableRadio,
+      constructionMaterials: this.constructionMaterials,
+      carryingUnitId: this.carryingUnitId,
+      carriedByUnitId: this.carriedByUnitId,
     }
   }
 
@@ -157,12 +173,15 @@ export class Soldier extends Unit {
     s.alive = data.alive as boolean
     s.pos = data.pos as { x: number; y: number }
     s.inCover = data.inCover as boolean
-    s.disobedient = data.disobedient as boolean
     s.firePermission = data.firePermission as FirePermission
     s.engagementTargetId = data.engagementTargetId as string
     s.incapacitated = data.incapacitated as boolean
     s.ownerId = data.ownerId as string
     s.actionPoints = data.actionPoints as number
+    s.hasPortableRadio = data.hasPortableRadio !== undefined ? (data.hasPortableRadio as boolean) : true
+    s.constructionMaterials = data.constructionMaterials !== undefined ? (data.constructionMaterials as number) : 0
+    s.carryingUnitId = data.carryingUnitId !== undefined ? (data.carryingUnitId as string) : ''
+    s.carriedByUnitId = data.carriedByUnitId !== undefined ? (data.carriedByUnitId as string) : ''
     return s
   }
 }

@@ -20,6 +20,9 @@ interface GameStore {
   appPhase: 'menu' | 'scenario-select' | 'playing' | 'save-load' | 'sandbox-lobby' | 'drafting' | 'multiplayer-lobby' | 'draft-1v1'
   sandboxSettings: SandboxSettings | null
   draftedUnits: Soldier[]
+  draftedMaterials: number
+  addDraftedMaterial: () => void
+  removeDraftedMaterial: () => void
 
   isMuted: boolean
   musicVolume: number
@@ -45,7 +48,7 @@ interface GameStore {
   syncState: () => void
   setAppPhase: (phase: 'menu' | 'scenario-select' | 'playing' | 'save-load' | 'sandbox-lobby' | 'drafting' | 'multiplayer-lobby' | 'draft-1v1') => void
 
-  startScenario: (index: number) => void
+  startScenario: (index: number, difficulty?: 'EASY' | 'STANDARD' | 'HARD') => void
   startSandbox: (settings: SandboxSettings, draftedUnits: Soldier[]) => void
   advanceTime: (minutes: number) => void
   selectUnit: (id: string | null) => void
@@ -56,10 +59,10 @@ interface GameStore {
   setAttackMode: (mode: boolean) => void
   issueFirePermission: (decision: 'ATES_IZNI_VERILDI' | 'ATES_YASAK' | 'BEKLEMEDE_KAL') => void
   requestSupply: (unitId: string, type: SupplyType, amount: number) => void
-  artilleryAt: (x: number, y: number) => void
-  airStrikeAt: (x: number, y: number) => void
-  callT129: (unitId: string, x: number, y: number) => void
-  callUH60: (unitId: string, targetUnitId: string) => void
+  artilleryAt: (x: number, y: number) => boolean
+  airStrikeAt: (x: number, y: number) => boolean
+  callT129: (unitId: string, x: number, y: number) => boolean
+  callUH60: (unitId: string, targetUnitId: string, destX: number, destY: number) => boolean
   sendCommand: (unitId: string, cmd: string) => void
   setSandboxSettings: (settings: SandboxSettings) => void
   addDraftedUnit: (role: SoldierRole) => void
@@ -85,6 +88,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   appPhase: 'menu',
   sandboxSettings: null,
   draftedUnits: [],
+  draftedMaterials: 0,
   isMuted: false,
   musicVolume: 0.5,
   sfxVolume: 1.0,
@@ -196,10 +200,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
     })
   },
 
-  startScenario: (index: number) => {
+  startScenario: (index: number, difficulty: 'EASY' | 'STANDARD' | 'HARD' = 'STANDARD') => {
     const { engine } = get()
     if (!engine) return
-    engine.loadScenario(index)
+    engine.loadScenario(index, difficulty)
     set({
       appPhase: 'playing',
       selectedUnitId: null,
@@ -210,18 +214,49 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   startSandbox: (settings, units) => {
-    const { engine } = get()
+    const { engine, draftedMaterials } = get()
     if (!engine) return
+    
+    const freshUnits: Soldier[] = []
     const unitMap = new Map<string, Soldier>()
-    units.forEach(u => unitMap.set(u.getId(), u))
-    engine.loadSandbox(unitMap, settings)
+    
+    units.forEach(u => {
+      // Re-create each unit to ensure fresh stats (HP, morale, ammo, etc.) on restart
+      const freshUnit = makeUnit(
+        u.getId(),
+        u.getName(),
+        u.getRole(),
+        100,  // maxHp/hp
+        100,  // morale
+        200,  // ammo
+        10,   // rations
+        2,    // medkits
+        0,    // position will be set in loadSandbox
+        0
+      )
+      freshUnits.push(freshUnit)
+      unitMap.set(freshUnit.getId(), freshUnit)
+    })
+
+    engine.loadSandbox(unitMap, settings, draftedMaterials)
     set({
+      draftedUnits: freshUnits,
+      draftedMaterials: 0, // Reset
       appPhase: 'playing',
       selectedUnitId: null,
       selectedEnemyId: null,
       state: engine.getState(),
     })
     get().syncState()
+  },
+  addDraftedMaterial: () => {
+    set({ draftedMaterials: get().draftedMaterials + 1 })
+  },
+  removeDraftedMaterial: () => {
+    const current = get().draftedMaterials
+    if (current > 0) {
+      set({ draftedMaterials: current - 1 })
+    }
   },
 
   advanceTime: (minutes: number) => {
@@ -284,34 +319,38 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   artilleryAt: (x, y) => {
     const { engine, syncState } = get()
-    if (!engine) return
-    engine.artilleryAt(x, y)
+    if (!engine) return false
+    const ok = engine.artilleryAt(x, y)
     set({ state: engine.getState() })
     syncState()
+    return ok
   },
 
   airStrikeAt: (x, y) => {
     const { engine, syncState } = get()
-    if (!engine) return
-    engine.airStrikeAt(x, y)
+    if (!engine) return false
+    const ok = engine.airStrikeAt(x, y)
     set({ state: engine.getState() })
     syncState()
+    return ok
   },
 
   callT129: (unitId, x, y) => {
     const { engine, syncState } = get()
-    if (!engine) return
-    engine.callT129(unitId, x, y)
+    if (!engine) return false
+    const ok = engine.callT129(unitId, x, y)
     set({ state: engine.getState() })
     syncState()
+    return ok
   },
 
-  callUH60: (unitId, targetUnitId) => {
+  callUH60: (unitId, targetUnitId, destX, destY) => {
     const { engine, syncState } = get()
-    if (!engine) return
-    engine.callUH60(unitId, targetUnitId)
+    if (!engine) return false
+    const ok = engine.callUH60(unitId, targetUnitId, destX, destY)
     set({ state: engine.getState() })
     syncState()
+    return ok
   },
 
   sendCommand: (unitId, cmd) => {

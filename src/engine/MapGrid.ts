@@ -62,21 +62,29 @@ export class MapGrid {
 
   terrainToSymbol(t: TerrainType): string {
     switch (t) {
-      case TerrainType.OPEN:     return '·'
-      case TerrainType.CITY:     return '🏙'
-      case TerrainType.FOREST:   return '🌲'
-      case TerrainType.MOUNTAIN: return '⛰'
-      case TerrainType.BRIDGE:   return '🌉'
+      case TerrainType.OPEN:         return '·'
+      case TerrainType.CITY:         return '🏙'
+      case TerrainType.FOREST:       return '🌲'
+      case TerrainType.MOUNTAIN:     return '⛰'
+      case TerrainType.BRIDGE:       return '🌉'
+      case TerrainType.FOB_COMMAND:  return '⛺'
+      case TerrainType.FOB_HOSPITAL: return '🏥'
+      case TerrainType.FOB_SUPPLY:   return '📦'
+      case TerrainType.FOB_SANDBAGS: return '🧱'
     }
   }
 
   terrainToColor(t: TerrainType): string {
     switch (t) {
-      case TerrainType.OPEN:     return '#1a2a1a'
-      case TerrainType.CITY:     return '#1a1a2a'
-      case TerrainType.FOREST:   return '#0d2a0d'
-      case TerrainType.MOUNTAIN: return '#2a2520'
-      case TerrainType.BRIDGE:   return '#1a2020'
+      case TerrainType.OPEN:         return '#1a2a1a'
+      case TerrainType.CITY:         return '#1a1a2a'
+      case TerrainType.FOREST:       return '#0d2a0d'
+      case TerrainType.MOUNTAIN:     return '#2a2520'
+      case TerrainType.BRIDGE:       return '#1a2020'
+      case TerrainType.FOB_COMMAND:  return '#3a1a5a'
+      case TerrainType.FOB_HOSPITAL: return '#1a5a3a'
+      case TerrainType.FOB_SUPPLY:   return '#5a3a1a'
+      case TerrainType.FOB_SANDBAGS: return '#3c3e3a'
     }
   }
 
@@ -92,7 +100,7 @@ export class MapGrid {
     }
   }
 
-  findPath(start: Position, end: Position): Position[] {
+  findPath(start: Position, end: Position, occupiedPositions?: Set<string>): Position[] {
     interface AStarNode {
       x: number
       y: number
@@ -144,12 +152,23 @@ export class MapGrid {
         if (nx < 0 || nx >= this.width || ny < 0 || ny >= this.height) continue
 
         const terrain = this.getTerrain(nx, ny)
-        if (terrain === TerrainType.MOUNTAIN) continue
+
+        // FOB structures are impassable obstacles unless they are the destination
+        if (
+          (terrain === TerrainType.FOB_COMMAND ||
+           terrain === TerrainType.FOB_HOSPITAL ||
+           terrain === TerrainType.FOB_SUPPLY) &&
+          !(nx === end.x && ny === end.y)
+        ) {
+          continue
+        }
 
         const key = `${nx},${ny}`
         if (closedList.has(key)) continue
+        if (occupiedPositions?.has(key) && !(nx === end.x && ny === end.y)) continue
 
-        const gScore = currentNode.g + 1
+        const stepCost = terrain === TerrainType.MOUNTAIN ? 3 : 1
+        const gScore = currentNode.g + stepCost
         const hScore = Math.abs(nx - end.x) + Math.abs(ny - end.y)
         const fScore = gScore + hScore
 

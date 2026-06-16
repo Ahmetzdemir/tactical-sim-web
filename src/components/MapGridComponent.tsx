@@ -1,16 +1,21 @@
-import { useState, useCallback, useMemo, useEffect, memo } from 'react'
+import { useState, useCallback, useMemo, useEffect, useRef, memo } from 'react'
 import { useGameStore } from '../store/useGameStore'
 import { TerrainType } from '../engine/types'
 import { Soldier } from '../engine/Soldier'
 import { EnemyUnit } from '../engine/EnemyUnit'
 import { NatoUnitIcon } from './NatoUnitIcon'
+import { AnimationOverlay, type AbilityAnimation } from './AnimationOverlay'
 
 const TERRAIN_BG_CLASS: Record<TerrainType, string> = {
-  [TerrainType.OPEN]:     'bg-[#0A0E17]',
-  [TerrainType.CITY]:     'bg-[#0b131f]',
-  [TerrainType.FOREST]:   'bg-[#081512]',
-  [TerrainType.MOUNTAIN]: 'bg-[#12161a]',
-  [TerrainType.BRIDGE]:   'bg-[#0e1726]',
+  [TerrainType.OPEN]:         'bg-[#0A0E17]',
+  [TerrainType.CITY]:         'bg-[#0b131f]',
+  [TerrainType.FOREST]:       'bg-[#081512]',
+  [TerrainType.MOUNTAIN]:     'bg-[#12161a]',
+  [TerrainType.BRIDGE]:       'bg-[#0e1726]',
+  [TerrainType.FOB_COMMAND]:  'bg-[#1e152a]',
+  [TerrainType.FOB_HOSPITAL]: 'bg-[#152a25]',
+  [TerrainType.FOB_SUPPLY]:   'bg-[#2a2215]',
+  [TerrainType.FOB_SANDBAGS]: 'bg-[#1c1d1a]',
 }
 
 const renderTerrainSvg = (terrain: TerrainType) => {
@@ -62,11 +67,48 @@ const renderTerrainSvg = (terrain: TerrainType) => {
           <line x1="0" y1="38" x2="100" y2="38" stroke="#FFD700" strokeWidth="2.5" />
           <line x1="0" y1="62" x2="100" y2="62" stroke="#FFD700" strokeWidth="2.5" />
           {/* Cross truss beams */}
-          <line x1="12" y1="38" x2="28" y2="62" stroke="#FFD700" strokeWidth="2" />
-          <line x1="28" y1="62" x2="44" y2="38" stroke="#FFD700" strokeWidth="2" />
-          <line x1="44" y1="38" x2="60" y2="62" stroke="#FFD700" strokeWidth="2" />
-          <line x1="60" y1="62" x2="76" y2="38" stroke="#FFD700" strokeWidth="2" />
-          <line x1="76" y1="38" x2="92" y2="62" stroke="#FFD700" strokeWidth="2" />
+          <line x1="12" y1="38" x2="28" y2="62" stroke="#FFD700" stroke="2" />
+          <line x1="28" y1="62" x2="44" y2="38" stroke="#FFD700" stroke="2" />
+          <line x1="44" y1="38" x2="60" y2="62" stroke="#FFD700" stroke="2" />
+          <line x1="60" y1="62" x2="76" y2="38" stroke="#FFD700" stroke="2" />
+          <line x1="76" y1="38" x2="92" y2="62" stroke="#FFD700" stroke="2" />
+        </svg>
+      )
+    case TerrainType.FOB_COMMAND:
+      return (
+        <svg viewBox="0 0 100 100" className="absolute inset-0 w-full h-full pointer-events-none opacity-[0.45] z-0">
+          <polygon points="50,15 80,75 20,75" fill="none" stroke="#a855f7" strokeWidth="2.5" />
+          <line x1="50" y1="15" x2="50" y2="5" stroke="#a855f7" strokeWidth="2" />
+          <circle cx="50" cy="5" r="2.5" fill="#a855f7" />
+          <path d="M 35,50 Q 50,40 65,50" fill="none" stroke="#a855f7" strokeWidth="1.5" />
+          <rect x="42" y="55" width="16" height="15" fill="none" stroke="#a855f7" strokeWidth="1.5" />
+        </svg>
+      )
+    case TerrainType.FOB_HOSPITAL:
+      return (
+        <svg viewBox="0 0 100 100" className="absolute inset-0 w-full h-full pointer-events-none opacity-[0.5] z-0">
+          <polygon points="15,75 50,25 85,75" fill="none" stroke="#10b981" strokeWidth="2.5" />
+          <line x1="50" y1="25" x2="50" y2="75" stroke="#10b981" strokeWidth="1.5" strokeDasharray="2,2" />
+          <path d="M 44,50 H 56 M 50,44 V 56" stroke="#10b981" strokeWidth="3.5" strokeLinecap="square" />
+        </svg>
+      )
+    case TerrainType.FOB_SUPPLY:
+      return (
+        <svg viewBox="0 0 100 100" className="absolute inset-0 w-full h-full pointer-events-none opacity-[0.45] z-0">
+          <rect x="25" y="45" width="22" height="22" fill="none" stroke="#f59e0b" strokeWidth="2" />
+          <line x1="25" y1="45" x2="47" y2="67" stroke="#f59e0b" strokeWidth="1" />
+          <line x1="47" y1="45" x2="25" y2="67" stroke="#f59e0b" strokeWidth="1" />
+          <rect x="52" y="52" width="22" height="22" fill="none" stroke="#f59e0b" strokeWidth="2" />
+          <line x1="52" y1="52" x2="74" y2="74" stroke="#f59e0b" strokeWidth="1" />
+          <line x1="74" y1="52" x2="52" y2="74" stroke="#f59e0b" strokeWidth="1" />
+        </svg>
+      )
+    case TerrainType.FOB_SANDBAGS:
+      return (
+        <svg viewBox="0 0 100 100" className="absolute inset-0 w-full h-full pointer-events-none opacity-[0.4] z-0">
+          <path d="M 20,70 Q 50,60 80,70" fill="none" stroke="#78716c" strokeWidth="6" strokeLinecap="round" />
+          <path d="M 25,58 Q 50,48 75,58" fill="none" stroke="#78716c" strokeWidth="5.5" strokeLinecap="round" strokeDasharray="10,2" />
+          <path d="M 32,48 Q 50,40 68,48" fill="none" stroke="#78716c" strokeWidth="5" strokeLinecap="round" />
         </svg>
       )
     default:
@@ -99,6 +141,17 @@ const renderSelectionReticle = (color: string) => {
   )
 }
 
+const renderPortableRadioSvg = () => {
+  return (
+    <svg viewBox="0 0 100 100" className="absolute inset-0 w-full h-full pointer-events-none z-10 animate-pulse">
+      <circle cx="50" cy="50" r="30" fill="none" stroke="#00FFFF" strokeWidth="1" opacity="0.3" strokeDasharray="3,3" />
+      <circle cx="50" cy="50" r="16" fill="none" stroke="#00FFFF" strokeWidth="1.5" opacity="0.5" />
+      <line x1="50" y1="85" x2="50" y2="38" stroke="#00FFFF" strokeWidth="2.5" />
+      <circle cx="50" cy="32" r="4.5" fill="#00FFFF" />
+    </svg>
+  )
+}
+
 interface MapCellProps {
   x: number
   y: number
@@ -108,12 +161,17 @@ interface MapCellProps {
   isSelectedUnit: boolean
   isSelectedEnemy: boolean
   isOnAttackPath: boolean
+  isOnMovePath: boolean
+  hasRadio: boolean
+  inRadioCoverage: boolean
   borderColor: string
   unitHere: { unitId: string; unit: Soldier } | undefined
   enemyHere: { enemyId: string; enemy: EnemyUnit } | undefined
   onClick: (x: number, y: number) => void
   onMouseEnter: (x: number, y: number) => void
   onMouseLeave: () => void
+  activeConstruction?: { structureType: TerrainType; progress: number; targetProgress: number }
+  airdropAmount?: number
 }
 
 const MapCell = memo(function MapCell({
@@ -125,12 +183,17 @@ const MapCell = memo(function MapCell({
   isSelectedUnit,
   isSelectedEnemy,
   isOnAttackPath,
+  isOnMovePath,
+  hasRadio,
+  inRadioCoverage,
   borderColor,
   unitHere,
   enemyHere,
   onClick,
   onMouseEnter,
   onMouseLeave,
+  activeConstruction,
+  airdropAmount,
 }: MapCellProps) {
   return (
     <div
@@ -140,7 +203,7 @@ const MapCell = memo(function MapCell({
         fontSize: 'clamp(6px, 1.5vw, 13px)',
         borderWidth: '1px',
         borderColor: borderColor,
-        boxShadow: isSelectedUnit ? '0 0 10px rgba(0, 255, 0, 0.2)' : isSelectedEnemy ? '0 0 10px rgba(255, 0, 0, 0.2)' : isOnAttackPath ? '0 0 6px rgba(255, 165, 0, 0.15)' : 'none',
+        boxShadow: isSelectedUnit ? '0 0 10px rgba(0, 255, 0, 0.2)' : isSelectedEnemy ? '0 0 10px rgba(255, 0, 0, 0.2)' : isOnAttackPath ? '0 0 6px rgba(255, 165, 0, 0.15)' : isOnMovePath ? '0 0 6px rgba(0, 255, 255, 0.15)' : 'none',
       }}
       onClick={() => onClick(x, y)}
       onMouseEnter={() => onMouseEnter(x, y)}
@@ -153,6 +216,20 @@ const MapCell = memo(function MapCell({
           <circle cx="50" cy="50" r="18" fill="none" stroke="#FF8C00" strokeWidth="2" strokeDasharray="4,3" opacity="0.35" />
         </svg>
       )}
+      {/* Move route path waypoint marker */}
+      {isOnMovePath && !unitHere && !enemyHere && (
+        <svg viewBox="0 0 100 100" className="absolute inset-0 w-full h-full pointer-events-none z-[5] animate-pulse">
+          <circle cx="50" cy="50" r="6" fill="#00FFFF" opacity="0.7" />
+          <circle cx="50" cy="50" r="14" fill="none" stroke="#00FFFF" strokeWidth="1.5" strokeDasharray="3,3" opacity="0.4" />
+        </svg>
+      )}
+      {/* Portable Radio Antenna overlay */}
+      {hasRadio && renderPortableRadioSvg()}
+
+      {/* Coverage indicator icon */}
+      {inRadioCoverage && !hasRadio && (
+        <span className="absolute top-0.5 right-1 text-[8px] text-[#00FFFF] opacity-60 pointer-events-none select-none" title="Telsiz Röle Kapsama Alanı">📶</span>
+      )}
       {/* Terrain SVG Layer */}
       {isDiscovered && renderTerrainSvg(terrain)}
 
@@ -162,6 +239,31 @@ const MapCell = memo(function MapCell({
 
       {/* Capture Point overlay */}
       {isCapturePoint && !unitHere && !enemyHere && renderCapturePointSvg()}
+
+      {/* Airdrop Material overlay */}
+      {airdropAmount !== undefined && (
+        <svg viewBox="0 0 100 100" className="absolute inset-0 w-full h-full pointer-events-none z-10 animate-bounce">
+          <rect x="35" y="45" width="30" height="30" fill="#eab308" stroke="#854d0e" strokeWidth="2" opacity="0.9" />
+          <line x1="35" y1="45" x2="65" y2="75" stroke="#854d0e" strokeWidth="2" />
+          <line x1="65" y1="45" x2="35" y2="75" stroke="#854d0e" strokeWidth="2" />
+          <line x1="50" y1="20" x2="35" y2="45" stroke="#d1d5db" strokeWidth="1.5" />
+          <line x1="50" y1="20" x2="65" y2="45" stroke="#d1d5db" strokeWidth="1.5" />
+          <path d="M 30,22 C 30,5 70,5 70,22 Z" fill="#ef4444" stroke="#b91c1c" strokeWidth="1.5" opacity="0.8" />
+        </svg>
+      )}
+
+      {/* Construction loading template overlay */}
+      {activeConstruction !== undefined && (
+        <div className="absolute inset-0 flex flex-col items-center justify-between p-1 bg-yellow-950/20 border border-dashed border-yellow-500/50 z-10">
+          <span className="text-[7px] text-yellow-500 font-bold uppercase tracking-widest text-center leading-none mt-0.5 animate-pulse">Şablon</span>
+          <div className="w-full bg-slate-900/60 h-1 rounded-none overflow-hidden mb-0.5">
+            <div
+              className="h-full bg-yellow-500 transition-all duration-300"
+              style={{ width: `${(activeConstruction.progress / activeConstruction.targetProgress) * 100}%` }}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Entity Layer */}
       {unitHere ? (
@@ -211,8 +313,12 @@ export function MapGridComponent() {
     selectUnit, selectEnemy, moveUnit, artilleryAt, airStrikeAt,
     callT129, callUH60, attackMoveToEnemy, attackMode, setAttackMode,
   } = useGameStore()
-  const [strikeMode, setStrikeMode] = useState<'none' | 'artillery' | 'airstrike' | 't129' | 'uh60' | 'attack'>('none')
+  const [strikeMode, setStrikeMode] = useState<'none' | 'artillery' | 'airstrike' | 't129' | 'uh60' | 'uh60-dropoff' | 'attack'>('none')
+  const [tempUH60TargetId, setTempUH60TargetId] = useState<string | null>(null)
   const [hoveredCell, setHoveredCell] = useState<{ x: number; y: number } | null>(null)
+  const [activeAnim, setActiveAnim] = useState<{ type: AbilityAnimation; x: number; y: number } | null>(null)
+  // Ref to measure the actual rendered grid pixel bounds
+  const gridRef = useRef<HTMLDivElement>(null)
 
   // Sync attackMode from store (set by UnitHUD) with local strikeMode
   useEffect(() => {
@@ -224,7 +330,7 @@ export function MapGridComponent() {
 
   if (!state) return null
 
-  const { units, enemies, mapGrid, capturePoint, hasCapturePoint, attackRoutes } = state
+  const { units, enemies, mapGrid, capturePoint, hasCapturePoint, attackRoutes, moveRoutes, deployedRadios } = state
 
   // Build position maps for quick lookup
   const unitPositions = useMemo(() => {
@@ -249,18 +355,21 @@ export function MapGridComponent() {
 
   const handleCellClick = useCallback((x: number, y: number) => {
     if (strikeMode === 'artillery') {
-      artilleryAt(x, y)
+      const ok = artilleryAt(x, y)
+      if (ok) setActiveAnim({ type: 'artillery', x, y })
       setStrikeMode('none')
       return
     }
     if (strikeMode === 'airstrike') {
-      airStrikeAt(x, y)
+      const ok = airStrikeAt(x, y)
+      if (ok) setActiveAnim({ type: 'airstrike', x, y })
       setStrikeMode('none')
       return
     }
     if (strikeMode === 't129') {
       if (selectedUnitId) {
-        callT129(selectedUnitId, x, y)
+        const ok = callT129(selectedUnitId, x, y)
+        if (ok) setActiveAnim({ type: 'atak', x, y })
         setStrikeMode('none')
       }
       return
@@ -270,10 +379,21 @@ export function MapGridComponent() {
       const targetUnit = unitPositions.get(cellKey)
       if (selectedUnitId && targetUnit) {
         const s = targetUnit.unit as Soldier
-        if (!s.isAlive() || s.isIncapacitated()) {
-          callUH60(selectedUnitId, targetUnit.unitId)
-          setStrikeMode('none')
+        if (s.isAlive() && s.isIncapacitated()) {
+          setTempUH60TargetId(targetUnit.unitId)
+          setStrikeMode('uh60-dropoff')
         }
+      }
+      return
+    }
+    if (strikeMode === 'uh60-dropoff') {
+      if (selectedUnitId && tempUH60TargetId) {
+        const ok = callUH60(selectedUnitId, tempUH60TargetId, x, y)
+        if (ok) {
+          setActiveAnim({ type: 'medevac', x, y })
+        }
+        setTempUH60TargetId(null)
+        setStrikeMode('none')
       }
       return
     }
@@ -292,13 +412,35 @@ export function MapGridComponent() {
     const enemyHere = enemyPositions.get(cellKey)
 
     if (unitHere) {
-      selectUnit(selectedUnitId === unitHere.unitId ? null : unitHere.unitId)
+      const u = state.units.get(unitHere.unitId) as Soldier | undefined
+      if (u) {
+        const carriedId = u.getCarryingUnitId()
+        const carrierId = u.getCarriedByUnitId()
+        
+        if (selectedUnitId === unitHere.unitId) {
+          if (carriedId) {
+            selectUnit(carriedId)
+          } else if (carrierId) {
+            selectUnit(carrierId)
+          } else {
+            selectUnit(null)
+          }
+        } else {
+          selectUnit(unitHere.unitId)
+        }
+      } else {
+        selectUnit(selectedUnitId === unitHere.unitId ? null : unitHere.unitId)
+      }
     } else if (enemyHere) {
-      selectEnemy(selectedEnemyId === enemyHere.enemyId ? null : enemyHere.enemyId)
+      if (selectedUnitId) {
+        attackMoveToEnemy(selectedUnitId, enemyHere.enemyId)
+      } else {
+        selectEnemy(selectedEnemyId === enemyHere.enemyId ? null : enemyHere.enemyId)
+      }
     } else if (selectedUnitId) {
       moveUnit(selectedUnitId, x, y)
     }
-  }, [strikeMode, selectedUnitId, unitPositions, enemyPositions, artilleryAt, airStrikeAt, callT129, callUH60, attackMoveToEnemy, selectUnit, selectEnemy, moveUnit])
+  }, [strikeMode, selectedUnitId, unitPositions, enemyPositions, artilleryAt, airStrikeAt, callT129, callUH60, attackMoveToEnemy, selectUnit, selectEnemy, moveUnit, state])
 
   const handleMouseEnter = useCallback((x: number, y: number) => {
     setHoveredCell({ x, y })
@@ -316,12 +458,7 @@ export function MapGridComponent() {
       <div className="scanlines-overlay" />
       <div className="vignette-overlay" />
 
-      {/* Terminal Status Indicators */}
-      <div className="absolute bottom-2 right-2 flex flex-col items-end pointer-events-none z-[110]">
-        <span className="terminal-label animate-pulse">BFT: ONLINE</span>
-        <span className="terminal-label">SCAN: ACTIVE</span>
-        <span className="terminal-label text-[8px] opacity-40">GRID SOURCE: MSS</span>
-      </div>
+
 
       <div className="absolute top-2 left-2 flex flex-col pointer-events-none z-[110]">
         <span className="terminal-label text-[8px]">RADAR TERM V4.1</span>
@@ -358,8 +495,16 @@ export function MapGridComponent() {
           <button
             id="btn-uh60"
             disabled={!selectedUnitId || state.uh60State !== 'idle'}
-            onClick={() => setStrikeMode(s => s === 'uh60' ? 'none' : 'uh60')}
-            className={`text-xs px-2 py-0.5 border transition-all ${(!selectedUnitId || state.uh60State !== 'idle') ? 'opacity-30 cursor-not-allowed border-mil-border text-[#4b5563]' : strikeMode === 'uh60' ? 'border-[#00FFFF] text-[#00FFFF] bg-cyan-950/20' : 'border-mil-border text-[#4b5563] hover:text-[#00FFFF]'}`}
+            onClick={() => {
+              if (strikeMode === 'uh60-dropoff') {
+                setStrikeMode('none')
+                setTempUH60TargetId(null)
+              } else if (selectedUnitId) {
+                setTempUH60TargetId(selectedUnitId)
+                setStrikeMode('uh60-dropoff')
+              }
+            }}
+            className={`text-xs px-2 py-0.5 border transition-all ${(!selectedUnitId || state.uh60State !== 'idle') ? 'opacity-30 cursor-not-allowed border-mil-border text-[#4b5563]' : strikeMode === 'uh60-dropoff' ? 'border-[#00FFFF] text-[#00FFFF] bg-cyan-950/20' : 'border-mil-border text-[#4b5563] hover:text-[#00FFFF]'}`}
           >
             🚑 MEDEVAC
           </button>
@@ -381,9 +526,50 @@ export function MapGridComponent() {
           </button>
         </div>
       )}
-      {/* Grid */}
+      {strikeMode === 'uh60' && (
+        <div className="px-3 py-2 bg-cyan-950/30 border-b border-[#00FFFF]/40 flex items-center justify-between z-20">
+          <div className="flex items-center gap-2 animate-pulse">
+            <span className="text-[#00FFFF] text-sm">🚁</span>
+            <span className="text-[#00FFFF] text-xs font-bold tracking-wider uppercase">MEDEVAC AKTİF — HARİTADAN ALINACAK YARALI ASKERİ SEÇİN</span>
+          </div>
+          <button
+            onClick={() => { setStrikeMode('none'); setTempUH60TargetId(null) }}
+            className="text-xs px-2 py-0.5 border border-[#00FFFF]/40 text-[#00FFFF] hover:bg-cyan-950/40 transition-all"
+          >
+            ✕ İPTAL
+          </button>
+        </div>
+      )}
+      {strikeMode === 'uh60-dropoff' && (
+        <div className="px-3 py-2 bg-yellow-950/30 border-b border-[#FFD700]/40 flex items-center justify-between z-20 animate-pulse">
+          <div className="flex items-center gap-2">
+            <span className="text-[#FFD700] text-sm">📍</span>
+            <span className="text-[#FFD700] text-xs font-bold tracking-wider uppercase">MEDEVAC İNİŞ NOKTASI SEÇİN — YARALININ İNDİRİLECEĞİ HEDEF KONUMA TIKLAYIN</span>
+          </div>
+          <button
+            onClick={() => { setStrikeMode('none'); setTempUH60TargetId(null) }}
+            className="text-xs px-2 py-0.5 border border-[#FFD700]/40 text-[#FFD700] hover:bg-yellow-950/40 transition-all"
+          >
+            ✕ İPTAL
+          </button>
+        </div>
+      )}
+      {state.uh60State !== 'idle' && (
+        <div className={`px-3 py-2 border-b flex items-center justify-between z-20 ${state.uh60State === 'flying' ? 'bg-cyan-950/30 border-[#00FFFF]/40' : 'bg-yellow-950/30 border-[#FFD700]/40'}`}>
+          <div className="flex items-center gap-2">
+            <span className={state.uh60State === 'flying' ? 'text-[#00FFFF] animate-bounce text-sm' : 'text-[#FFD700] animate-pulse text-sm'}>🚁</span>
+            <span className={`text-xs font-bold tracking-wider uppercase ${state.uh60State === 'flying' ? 'text-[#00FFFF]' : 'text-[#FFD700]'}`}>
+              {state.uh60State === 'flying' 
+                ? `MEDEVAC HAVADA — HEDEFE ULAŞMASINA: ${state.uh60Timer} DK (TURU İLERLETİN)` 
+                : `MEDEVAC SAHADA — YARALI ALINIYOR. KALAN SÜRE: ${state.uh60Timer} DK (TURU İLERLETİN)`}
+            </span>
+          </div>
+        </div>
+      )}
+      {/* Grid area */}
       <div className="flex-1 flex items-center justify-center p-2 overflow-hidden z-10">
         <div
+          ref={gridRef}
           className="grid gap-0"
           style={{
             display: 'grid',
@@ -404,12 +590,23 @@ export function MapGridComponent() {
               }
             }
 
+            // Build set of cells on active move routes
+            const movePathCells = new Set<string>()
+            if (moveRoutes) {
+              for (const [, route] of moveRoutes) {
+                for (let i = route.currentStep; i < route.path.length; i++) {
+                  movePathCells.add(`${route.path[i].x},${route.path[i].y}`)
+                }
+              }
+            }
+
             return Array.from({ length: mapGrid.height }, (_, y) =>
               Array.from({ length: mapGrid.width }, (_, x) => {
                 const cellKey = `${x},${y}`
                 const unitHere = unitPositions.get(cellKey)
                 const enemyHere = enemyPositions.get(cellKey)
-                const isDiscovered = true
+                const isHard = state.sandboxSettings?.difficulty === 'HARD'
+                const isDiscovered = isHard ? (state.discoveredTiles?.has(cellKey) ?? false) : true
                 const terrain = grid[y]?.[x] ?? TerrainType.OPEN
                 const isCapturePoint = hasCapturePoint && capturePoint.x === x && capturePoint.y === y
                 const isSelectedUnit = unitHere && selectedUnitId === unitHere.unitId
@@ -417,15 +614,27 @@ export function MapGridComponent() {
                 const isHovered = hoveredCell?.x === x && hoveredCell?.y === y
                 const isStrikeTarget = strikeMode !== 'none' && isHovered
                 const isOnAttackPath = attackPathCells.has(cellKey)
+                const isOnMovePath = movePathCells.has(cellKey)
+
+                const hasRadio = (deployedRadios || []).some(r => r.x === x && r.y === y)
+                const inRadioCoverage = (deployedRadios || []).some(r => {
+                  const dx = r.x - x
+                  const dy = r.y - y
+                  return Math.sqrt(dx * dx + dy * dy) <= 4.0
+                })
 
                 let borderColor = 'rgba(0, 255, 255, 0.05)'
                 if (isSelectedUnit) borderColor = '#00FF00'
                 else if (isSelectedEnemy) borderColor = '#FF0000'
                 else if (isCapturePoint) borderColor = '#FFD700'
                 else if (isOnAttackPath) borderColor = 'rgba(255, 140, 0, 0.5)'
+                else if (isOnMovePath) borderColor = 'rgba(0, 255, 255, 0.4)'
                 else if (isStrikeTarget) {
                   borderColor = strikeMode === 'artillery' ? '#FFD700' : strikeMode === 't129' ? '#00FF00' : strikeMode === 'attack' ? '#FF8C00' : '#00FFFF'
                 }
+
+                const activeConstr = state.activeConstructions?.get(cellKey)
+                const airdrop = state.airdrops?.find(d => d.x === x && d.y === y)
 
                 return (
                   <MapCell
@@ -438,17 +647,31 @@ export function MapGridComponent() {
                     isSelectedUnit={!!isSelectedUnit}
                     isSelectedEnemy={!!isSelectedEnemy}
                     isOnAttackPath={isOnAttackPath}
+                    isOnMovePath={isOnMovePath}
+                    hasRadio={hasRadio}
+                    inRadioCoverage={inRadioCoverage}
                     borderColor={borderColor}
                     unitHere={unitHere}
                     enemyHere={enemyHere}
                     onClick={handleCellClick}
                     onMouseEnter={handleMouseEnter}
                     onMouseLeave={handleMouseLeave}
+                    activeConstruction={activeConstr}
+                    airdropAmount={airdrop?.amount}
                   />
                 )
               })
             )
           })()}
+
+          {activeAnim && (
+            <AnimationOverlay
+              animation={activeAnim.type}
+              targetX={(activeAnim.x + 0.5) / mapGrid.width}
+              targetY={(activeAnim.y + 0.5) / mapGrid.height}
+              onDone={() => setActiveAnim(null)}
+            />
+          )}
         </div>
       </div>
 
@@ -459,7 +682,8 @@ export function MapGridComponent() {
             POS: {hoveredCell.x.toString().padStart(2, '0')}.{hoveredCell.y.toString().padStart(2, '0')} // TYPE: {
               (() => {
                 const cellKey = `${hoveredCell.x},${hoveredCell.y}`
-                const isDiscovered = true
+                const isHard = state.sandboxSettings?.difficulty === 'HARD'
+                const isDiscovered = isHard ? (state.discoveredTiles?.has(cellKey) ?? false) : true
                 if (!isDiscovered) return 'DATA_N/A'
                 const u = unitPositions.get(cellKey)
                 const e = enemyPositions.get(cellKey)
@@ -471,11 +695,18 @@ export function MapGridComponent() {
           </div>
           <div className="flex gap-4">
             {(() => {
-              const sig = state.mapGrid.calcSignalFactor({ x: 0, y: 0 }, hoveredCell) * state.weather.getSignalModifier()
+              const isNearRelay = (deployedRadios || []).some(r => {
+                const dx = r.x - hoveredCell.x
+                const dy = r.y - hoveredCell.y
+                return Math.sqrt(dx * dx + dy * dy) <= 4.0
+              })
+              const sig = isNearRelay 
+                ? 1.0 
+                : state.mapGrid.calcSignalFactor({ x: 0, y: 0 }, hoveredCell) * state.weather.getSignalModifier()
               const signalPct = Math.round(sig * 100)
               return (
                 <span className={signalPct < 20 ? 'text-mil-red animate-pulse' : 'text-mil-green'}>
-                  TELSİZ SİNYALİ: {signalPct}%
+                  TELSİZ SİNYALİ: {signalPct}% {isNearRelay && '(TAŞINABİLİR TELSİZ ETKİN)'}
                 </span>
               )
             })()}

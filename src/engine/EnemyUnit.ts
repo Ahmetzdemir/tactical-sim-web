@@ -3,7 +3,7 @@
 // ============================================================
 
 import { Unit } from './Unit'
-import { EnemyType, EnemyState, Position, TerrainType } from './types'
+import { EnemyType, EnemyState, Position } from './types'
 import { MapGrid } from './MapGrid'
 
 export class EnemyUnit extends Unit {
@@ -28,23 +28,62 @@ export class EnemyUnit extends Unit {
     this.patrolTimer = 0
   }
 
-  update(deltaTick: number, map?: MapGrid, mapWidth: number = 15, mapHeight: number = 15): void {
+  update(deltaTick: number, map?: MapGrid, mapWidth: number = 15, mapHeight: number = 15, occupiedPositions?: Set<string>, targetPos?: Position): void {
     if (!this.alive) return
     this.patrolTimer += deltaTick
 
-    // Assault target — move toward capture point
-    if (this.state === EnemyState.ASSAULT_TARGET && this.hasAssaultTarget) {
+    // Pursuit movement if state is ATTACKING and target position is provided
+    if (this.state === EnemyState.ATTACKING && targetPos) {
       if (this.patrolTimer >= 3) {
         this.patrolTimer = 0
-        const path = map ? map.findPath(this.pos, this.assaultTarget) : []
+        let path = map ? map.findPath(this.pos, targetPos, occupiedPositions) : []
         if (path.length > 1) {
-          this.pos.x = path[1].x
-          this.pos.y = path[1].y
+          const nextStep = path[1]
+          const nextStepKey = `${nextStep.x},${nextStep.y}`
+          if (!occupiedPositions?.has(nextStepKey)) {
+            this.pos.x = nextStep.x
+            this.pos.y = nextStep.y
+          }
+        }
+      }
+    }
+    // Assault target — move toward capture point
+    else if (this.state === EnemyState.ASSAULT_TARGET && this.hasAssaultTarget) {
+      if (this.patrolTimer >= 3) {
+        this.patrolTimer = 0
+        // Try to pathfind avoiding occupied tiles
+        let path = map ? map.findPath(this.pos, this.assaultTarget, occupiedPositions) : []
+        if (path.length > 1) {
+          const nextStep = path[1]
+          const nextStepKey = `${nextStep.x},${nextStep.y}`
+          if (!occupiedPositions?.has(nextStepKey)) {
+            this.pos.x = nextStep.x
+            this.pos.y = nextStep.y
+          }
         } else {
-          const dx = this.assaultTarget.x - this.pos.x
-          const dy = this.assaultTarget.y - this.pos.y
-          if (dx !== 0) this.pos.x += dx > 0 ? 1 : -1
-          else if (dy !== 0) this.pos.y += dy > 0 ? 1 : -1
+          // If pathing fails due to blocked tiles, try to get direction ignoring occupancy
+          const unblockedPath = map ? map.findPath(this.pos, this.assaultTarget) : []
+          if (unblockedPath.length > 1) {
+            const nextStep = unblockedPath[1]
+            const nextStepKey = `${nextStep.x},${nextStep.y}`
+            if (!occupiedPositions?.has(nextStepKey)) {
+              this.pos.x = nextStep.x
+              this.pos.y = nextStep.y
+            }
+          } else {
+            // Fallback direct step
+            const dx = this.assaultTarget.x - this.pos.x
+            const dy = this.assaultTarget.y - this.pos.y
+            let targetX = this.pos.x
+            let targetY = this.pos.y
+            if (dx !== 0) targetX += dx > 0 ? 1 : -1
+            else if (dy !== 0) targetY += dy > 0 ? 1 : -1
+            const key = `${targetX},${targetY}`
+            if (!occupiedPositions?.has(key)) {
+              this.pos.x = targetX
+              this.pos.y = targetY
+            }
+          }
         }
       }
     } else if (this.state === EnemyState.PATROL) {
@@ -56,7 +95,8 @@ export class EnemyUnit extends Unit {
         const dy = dirs[Math.floor(Math.random() * 3)]
         const nx = Math.max(0, Math.min(mapWidth - 1, this.pos.x + dx))
         const ny = Math.max(0, Math.min(mapHeight - 1, this.pos.y + dy))
-        if (!map || map.getTerrain(nx, ny) !== TerrainType.MOUNTAIN) {
+        const key = `${nx},${ny}`
+        if (!occupiedPositions?.has(key)) {
           this.pos.x = nx
           this.pos.y = ny
         }

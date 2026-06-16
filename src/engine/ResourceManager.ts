@@ -10,13 +10,15 @@ export class ResourceManager {
   private rations: number
   private ammo: number
   private medkits: number
+  private materials: number
   private tickAccumulator: number = 0
   private pendingSupplies: SupplyRequest[] = []
 
-  constructor(initRations = 100, initAmmo = 500, initMedkits = 20) {
+  constructor(initRations = 100, initAmmo = 500, initMedkits = 20, initMaterials = 15) {
     this.rations = initRations
     this.ammo = initAmmo
     this.medkits = initMedkits
+    this.materials = initMaterials
   }
 
   requestSupply(unitId: string, type: SupplyType, amount: number, currentTick: number): void {
@@ -43,6 +45,10 @@ export class ResourceManager {
         } else if (req.type === SupplyType.MEDKITS) {
           const actual = Math.min(req.amount, this.medkits)
           this.medkits -= actual
+          if (actual > 0) delivered.push({ unitId: req.unitId, type: req.type, amount: actual })
+        } else if (req.type === SupplyType.CONSTRUCTION_MATERIAL) {
+          const actual = Math.min(req.amount, this.materials)
+          this.materials -= actual
           if (actual > 0) delivered.push({ unitId: req.unitId, type: req.type, amount: actual })
         }
       } else {
@@ -72,23 +78,26 @@ export class ResourceManager {
   getRations(): number { return this.rations }
   getAmmo(): number { return this.ammo }
   getMedkits(): number { return this.medkits }
+  getMaterials(): number { return this.materials }
   getPendingSupplies(): SupplyRequest[] { return this.pendingSupplies }
 
   addAmmo(amount: number): void { this.ammo += amount }
   addRations(amount: number): void { this.rations += amount }
   addMedkits(amount: number): void { this.medkits += amount }
+  addMaterials(amount: number): void { this.materials += amount }
 
   isRationsCritical(): boolean { return this.rations <= 10 }
   isAmmoCritical(): boolean { return this.ammo <= 50 }
   isMedkitsCritical(): boolean { return this.medkits <= 2 }
+  isMaterialsCritical(): boolean { return this.materials <= 2 }
 
   getSupplyStatusReport(): string {
-    return `[LOJİSTİK] Erzak: ${this.rations} | Mühimmat: ${this.ammo} | Medkit: ${this.medkits}`
+    return `[LOJİSTİK] Erzak: ${this.rations} | Mühimmat: ${this.ammo} | Medkit: ${this.medkits} | Malzeme: ${this.materials}`
   }
 
   serialize(): object {
     return {
-      rations: this.rations, ammo: this.ammo, medkits: this.medkits,
+      rations: this.rations, ammo: this.ammo, medkits: this.medkits, materials: this.materials,
       tickAccumulator: this.tickAccumulator, pendingSupplies: this.pendingSupplies,
     }
   }
@@ -96,6 +105,7 @@ export class ResourceManager {
   static deserialize(data: Record<string, unknown>): ResourceManager {
     const rm = new ResourceManager(
       data.rations as number, data.ammo as number, data.medkits as number,
+      (data.materials as number | undefined) ?? 15
     )
     rm.tickAccumulator = data.tickAccumulator as number
     rm.pendingSupplies = data.pendingSupplies as SupplyRequest[]

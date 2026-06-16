@@ -5,15 +5,17 @@ import { SandboxMapSize, WeatherType, weatherTypeToString } from '../engine/type
 const SandboxLobby: React.FC = () => {
   const { setSandboxSettings, setAppPhase } = useGameStore()
   const [mapSize, setMapSize] = useState<SandboxMapSize>(SandboxMapSize.MEDIUM)
-  const [mode, setMode] = useState<'SURVIVAL' | 'SEARCH_AND_DESTROY'>('SEARCH_AND_DESTROY')
+  const [mode, setMode] = useState<'SURVIVAL' | 'SEARCH_AND_DESTROY' | 'RAAS'>('SEARCH_AND_DESTROY')
   const [weatherFixed, setWeatherFixed] = useState<WeatherType | 'DYNAMIC'>('DYNAMIC')
+  const [difficulty, setDifficulty] = useState<'EASY' | 'STANDARD' | 'HARD'>('STANDARD')
 
   const handleNext = () => {
     setSandboxSettings({
       mapSize,
       mode,
       isDynamicWeather: weatherFixed === 'DYNAMIC',
-      weatherFixed: weatherFixed === 'DYNAMIC' ? undefined : weatherFixed
+      weatherFixed: weatherFixed === 'DYNAMIC' ? undefined : weatherFixed,
+      difficulty,
     })
     setAppPhase('drafting')
   }
@@ -70,10 +72,11 @@ const SandboxLobby: React.FC = () => {
               <span className="w-2 h-2 bg-mil-yellow rounded-full" />
               OPERASYON MODU
             </h3>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-4">
               {[
                 { id: 'SEARCH_AND_DESTROY', label: 'Bölge Temizliği', desc: 'Sızma ve İmha' },
-                { id: 'SURVIVAL', label: 'Sonsuz Direniş', desc: 'Hayatta Kalma' }
+                { id: 'SURVIVAL', label: 'Sonsuz Direniş', desc: 'Hayatta Kalma' },
+                { id: 'RAAS', label: 'Hedef Arama (RAAS)', desc: '3 Noktayı Sırayla Ele Geçir' }
               ].map((m) => (
                 <button
                   key={m.id}
@@ -88,6 +91,47 @@ const SandboxLobby: React.FC = () => {
                   <div className="text-[10px] text-white/40 font-bold uppercase">{m.desc}</div>
                 </button>
               ))}
+            </div>
+          </section>
+
+          {/* Difficulty Level */}
+          <section>
+            <h3 className="text-mil-yellow font-black text-xs tracking-widest mb-4 flex items-center gap-2">
+              <span className="w-2 h-2 bg-mil-yellow rounded-full" />
+              ZORLUK DERECESİ
+            </h3>
+            <div className="grid grid-cols-3 gap-4">
+              {[
+                { id: 'EASY', label: 'Kolay', desc: 'HP/Hasar/Sayı: -25%' },
+                { id: 'STANDARD', label: 'Standart', desc: 'Normal Muharebe' },
+                { id: 'HARD', label: 'Zor', desc: 'HP/Hasar/Sayı: +30%' }
+              ].map((d) => {
+                const isSelected = difficulty === d.id
+                let btnClass = 'border-white/10 hover:border-white/30 bg-white/5'
+                let labelClass = 'text-mil-textBright'
+                if (isSelected) {
+                  if (d.id === 'EASY') {
+                    btnClass = 'border-mil-green bg-mil-green/10 ring-1 ring-mil-green shadow-[inset_0_0_10px_rgba(34,197,94,0.15)]'
+                    labelClass = 'text-mil-green'
+                  } else if (d.id === 'STANDARD') {
+                    btnClass = 'border-mil-cyan bg-mil-cyan/10 ring-1 ring-mil-cyan shadow-[inset_0_0_10px_rgba(6,182,212,0.15)]'
+                    labelClass = 'text-mil-cyan'
+                  } else {
+                    btnClass = 'border-mil-red bg-mil-red/10 ring-1 ring-mil-red shadow-[inset_0_0_10px_rgba(239,68,68,0.15)]'
+                    labelClass = 'text-mil-red'
+                  }
+                }
+                return (
+                  <button
+                    key={d.id}
+                    onClick={() => setDifficulty(d.id as any)}
+                    className={`p-4 border-2 transition-all text-left ${btnClass}`}
+                  >
+                    <div className={`text-sm font-black ${labelClass}`}>{d.label}</div>
+                    <div className="text-[10px] text-white/40 font-bold uppercase">{d.desc}</div>
+                  </button>
+                )
+              })}
             </div>
           </section>
 

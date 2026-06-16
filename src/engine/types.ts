@@ -47,6 +47,10 @@ export enum TerrainType {
   FOREST = 'FOREST',
   MOUNTAIN = 'MOUNTAIN',
   BRIDGE = 'BRIDGE',
+  FOB_COMMAND = 'FOB_COMMAND',
+  FOB_HOSPITAL = 'FOB_HOSPITAL',
+  FOB_SUPPLY = 'FOB_SUPPLY',
+  FOB_SANDBAGS = 'FOB_SANDBAGS',
 }
 
 export enum ReportCategory {
@@ -65,6 +69,7 @@ export enum SupplyType {
   RATIONS = 'RATIONS',
   AMMO = 'AMMO',
   MEDKITS = 'MEDKITS',
+  CONSTRUCTION_MATERIAL = 'CONSTRUCTION_MATERIAL',
 }
 
 export enum ObjectiveType {
@@ -93,7 +98,8 @@ export interface SandboxSettings {
   mapSize: SandboxMapSize
   weatherFixed?: WeatherType
   isDynamicWeather: boolean
-  mode: 'SURVIVAL' | 'SEARCH_AND_DESTROY'
+  mode: 'SURVIVAL' | 'SEARCH_AND_DESTROY' | 'RAAS'
+  difficulty?: 'EASY' | 'STANDARD' | 'HARD'
 }
 
 export interface DraftingUnit {
@@ -226,6 +232,7 @@ export function supplyTypeToString(st: SupplyType): string {
     [SupplyType.RATIONS]: 'Erzak',
     [SupplyType.AMMO]: 'Mühimmat',
     [SupplyType.MEDKITS]: 'Medkit',
+    [SupplyType.CONSTRUCTION_MATERIAL]: 'İnşaat Malzemesi',
   }
   return map[st]
 }

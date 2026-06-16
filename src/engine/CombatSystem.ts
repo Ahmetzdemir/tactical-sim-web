@@ -34,6 +34,7 @@ function calculateHitChance(
   if (defTerrain === TerrainType.CITY) chance -= 10
   if (defTerrain === TerrainType.MOUNTAIN) chance -= 10
   if (defTerrain === TerrainType.FOREST) chance -= 5
+  if (defTerrain === TerrainType.FOB_SANDBAGS) chance -= 10
   return Math.max(5, Math.min(95, chance))
 }
 
@@ -121,7 +122,7 @@ export const CombatSystem = {
     return result
   },
 
-  resolveEnemyAttack(attacker: EnemyUnit, defender: Soldier, map: MapGrid): CombatResult {
+  resolveEnemyAttack(attacker: EnemyUnit, defender: Soldier, map: MapGrid, damageMultiplier: number = 1.0): CombatResult {
     const result: CombatResult = { attackHit: false, defenderKilled: false, damageDealt: 0, reportMessage: '', category: ReportCategory.REGULAR, enemyTauntMessage: '' }
     if (!attacker.isAlive() || !defender.isAlive()) return result
     attacker.consumeAmmo(3)
@@ -141,6 +142,10 @@ export const CombatSystem = {
       }
       let finalDmg = dmgBase - 5 + Math.floor(Math.random() * 16)
       if (attacker.getType() === EnemyType.SNIPER && d100() <= 30) finalDmg *= 2
+      
+      // Scale damage with difficulty multiplier
+      finalDmg = Math.round(finalDmg * damageMultiplier)
+      
       result.damageDealt = finalDmg
       defender.takeDamage(finalDmg)
       defender.adjustMorale(-10)

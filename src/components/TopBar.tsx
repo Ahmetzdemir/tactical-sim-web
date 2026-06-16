@@ -14,11 +14,12 @@ export function TopBar() {
 
   const { time, weather, resources, activeScenarioIndex, sandboxSettings } = state
   const operation = activeScenarioIndex > 0 ? OPERATIONS[activeScenarioIndex - 1] : null
-  const opName = operation ? operation.name : (sandboxSettings ? (sandboxSettings.mode === 'SURVIVAL' ? 'SONSUZ DİRENİŞ' : 'BÖLGE TEMİZLİĞİ') : 'SERBEST MOD')
+  const opName = operation ? operation.name : (sandboxSettings ? (sandboxSettings.mode === 'SURVIVAL' ? 'SONSUZ DİRENİŞ' : sandboxSettings.mode === 'RAAS' ? 'HEDEF ARAMA (RAAS)' : 'BÖLGE TEMİZLİĞİ') : 'SERBEST MOD')
 
   const rationsCritical = resources.isRationsCritical()
   const ammoCritical = resources.isAmmoCritical()
   const medkitsCritical = resources.isMedkitsCritical()
+  const materialsCritical = typeof resources.isMaterialsCritical === 'function' ? resources.isMaterialsCritical() : false
 
   return (
     <div className="flex items-center gap-3 px-4 py-2 bg-mil-panel border-b border-mil-border flex-shrink-0 flex-wrap text-xs">
@@ -90,13 +91,20 @@ export function TopBar() {
           title="Medkit">
           <span className="text-base">💊</span> <span className="text-mil-dim hidden sm:inline">Medkit:</span> <span className="font-bold">{resources.getMedkits()}</span>
         </span>
+        <span className={`flex items-center gap-1.5 ${materialsCritical ? 'text-mil-red pulse-red' : 'text-mil-text'}`}
+          title="Malzeme">
+          <span className="text-base">🔧</span> <span className="text-mil-dim hidden sm:inline">Malzeme:</span> <span className="font-bold">{typeof resources.getMaterials === 'function' ? resources.getMaterials() : 0}</span>
+        </span>
       </div>
 
       {/* Capture point timer */}
       {state.hasCapturePoint && (
         <div className="border-l border-mil-border pl-3">
-          <span className="text-mil-yellow">
-            🎯 {state.defenseTimerCurrent}/{state.defenseTimerMax} dk
+          <span className="text-mil-yellow font-bold">
+            🎯 {state.sandboxSettings?.mode === 'RAAS'
+              ? `${state.raasActivePointIndex === 0 ? 'Hedef A' : state.raasActivePointIndex === 1 ? 'Hedef B' : 'Hedef C'} (${state.capturePoint.x}, ${state.capturePoint.y}) — Kontrol: ${state.capturePointTurns?.host || 0}/3 Tur`
+              : `${state.defenseTimerCurrent}/${state.defenseTimerMax} dk`
+            }
           </span>
         </div>
       )}

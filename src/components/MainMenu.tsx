@@ -45,91 +45,216 @@ export function MainMenu() {
       />
 
       {/* Main content */}
-      <div className="relative z-10 flex flex-col items-center justify-center gap-10 p-6 md:p-12 w-full max-w-4xl">
-        {/* Logo / Banner */}
-        <div className="text-center">
-          <div className="text-mil-red font-bold text-xs tracking-widest mb-2 opacity-70">
-            ▸ TAKTİKSEL SİMÜLASYON SİSTEMİ v2.0 ◂
+      <div className="relative z-10 flex flex-row items-stretch justify-center gap-8 p-6 md:p-10 w-full max-w-6xl">
+        
+        {/* Left Side Panel: System Diagnostics (Desktop Only) */}
+        <div className="hidden lg:flex flex-col w-64 flex-shrink-0 gap-4">
+          <div className="terminal-grid-panel p-4 flex-1 flex flex-col min-h-[400px]">
+            <div className="terminal-scan-line" />
+            
+            <div className="border-b border-[#00FFFF]/20 pb-2 mb-4">
+              <span className="text-[#00FFFF] text-xs font-black tracking-widest uppercase glow-text-cyan flex items-center gap-2">
+                <span className="status-dot-green"></span> [ SİSTEM TEŞHİS ]
+              </span>
+            </div>
+            
+            <div className="flex-1 space-y-4 font-mono text-[10px] text-mil-dim leading-relaxed">
+              <div className="p-2 bg-black/30 border border-mil-border/50">
+                <div className="text-white/40 font-bold uppercase mb-1">UYDU BAĞLANTISI</div>
+                <div className="text-mil-green font-bold flex items-center justify-between">
+                  <span>SATCOM_4_ACTIVE</span>
+                  <span>AKTİF</span>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex justify-between border-b border-white/5 pb-1">
+                  <span>ENKRİPSİYON</span>
+                  <span className="text-mil-textBright font-bold">AES-256-GCM</span>
+                </div>
+                <div className="flex justify-between border-b border-white/5 pb-1">
+                  <span>TELSİZ KANALI</span>
+                  <span className="text-mil-textBright font-bold">145.800 MHz</span>
+                </div>
+                <div className="flex justify-between border-b border-white/5 pb-1">
+                  <span>SİNYAL SEVİYESİ</span>
+                  <span className="text-mil-green font-bold">%98</span>
+                </div>
+                <div className="flex justify-between border-b border-white/5 pb-1">
+                  <span>GPS KOORDİNAT</span>
+                  <span className="text-[#FFD700] font-bold">39.95 N / 32.86 E</span>
+                </div>
+                <div className="flex justify-between border-b border-white/5 pb-1">
+                  <span>HAVA DURUMU</span>
+                  <span className="text-[#00FFFF] font-bold">DİNAMİK AKIŞ</span>
+                </div>
+                <div className="flex justify-between pb-1">
+                  <span>ROE YETKİSİ</span>
+                  <span className="text-[#FFD700] font-bold">ŞARTLI ATALET</span>
+                </div>
+              </div>
+
+              <div className="pt-2 mt-auto border-t border-[#00FFFF]/10 text-[8px] opacity-50 space-y-1">
+                <div>SYS_SECURE_KERNEL: OK</div>
+                <div>NET_ENCRYPT_LINK: STABLE</div>
+                <div>CMD_LINK_LATENCY: 0.12s</div>
+              </div>
+            </div>
           </div>
-          <pre className="text-mil-green font-bold text-sm leading-tight hidden md:block select-none"
-            style={{ textShadow: '0 0 20px rgba(34,197,94,0.5)' }}>
+        </div>
+
+        {/* Center Panel: Main Logo, Briefing and Buttons */}
+        <div className="flex-1 flex flex-col items-center justify-center gap-8 max-w-lg">
+          {/* Logo / Banner */}
+          <div className="text-center w-full">
+            <div className="text-mil-red font-bold text-xs tracking-widest mb-2 opacity-70">
+              ▸ TAKTİKSEL SİMÜLASYON SİSTEMİ v2.0 ◂
+            </div>
+            <pre className="text-mil-green font-bold text-sm leading-tight hidden md:block select-none crt-flicker"
+              style={{ textShadow: '0 0 20px rgba(34,197,94,0.5)' }}>
 {`  ████████╗ █████╗ ██████╗████████╗██╗ ██████╗ █████╗ ██╗
      ██╔══╝██╔══██╗██╔════╝   ██╔══╝██║██╔════╝██╔══██╗██║
      ██║   ███████║██║        ██║   ██║██║     ███████║██║
      ██║   ██╔══██║██║        ██║   ██║██║     ██╔══██║██║
      ██║   ██║  ██║╚██████╗   ██║   ██║╚██████╗██║  ██║███████╗
      ╚═╝   ╚═╝  ╚═╝ ╚═════╝   ╚═╝   ╚═╝ ╚═════╝╚═╝  ╚═╝╚══════╝`}
-          </pre>
-          <div className="text-mil-green text-2xl font-bold md:hidden"
-            style={{ textShadow: '0 0 16px rgba(34,197,94,0.5)' }}>
-            ⚔ TAKTİKSEL SİMÜLASYON
+            </pre>
+            <div className="text-mil-green text-2xl font-bold md:hidden glow-text-green"
+              style={{ textShadow: '0 0 16px rgba(34,197,94,0.5)' }}>
+              ⚔ TAKTİKSEL SİMÜLASYON
+            </div>
+            <div className="text-mil-dim text-xs mt-3 tracking-widest uppercase opacity-75">
+              TAKTİKSEL MANGA YÖNETİM SİMÜLASYONU — WEB PORT
+            </div>
           </div>
-          <div className="text-mil-dim text-sm mt-3 tracking-wider">
-            TAKTİKSEL MANGA YÖNETİM SİMÜLASYONU — WEB
+
+          {/* Mission briefing */}
+          <div className="terminal-grid-panel px-6 py-4 w-full text-center border-mil-green/20">
+            <div className="text-mil-yellow text-xs font-black tracking-widest mb-2 glow-text-cyan">[ HARAKÂT BİLGİSİ ]</div>
+            <p className="text-mil-text text-xs leading-relaxed">
+              Siz karargahta <span className="text-mil-green font-bold">Taktik Komutansınız.</span> Sahadaki timler telsiz ağıyla size bağlı. Emirleri iletin, ikmali yönetin ve hedefleri ele geçirin.
+            </p>
+          </div>
+
+          {/* Menu buttons */}
+          <div className="flex flex-col gap-3 w-full max-w-sm">
+            <button 
+              onClick={() => setAppPhase('scenario-select')}
+              className="w-full py-3.5 bg-green-950/40 text-mil-green border-2 border-mil-green hover:bg-mil-green hover:text-mil-bg transition-all uppercase font-black tracking-[0.2em] text-sm shadow-[0_0_15px_rgba(0,255,0,0.15)] relative flex items-center justify-center px-6 group"
+            >
+              <span>[ HAREKÂT BAŞLAT ]</span>
+              <span className="status-dot-green absolute right-6 top-1/2 -translate-y-1/2 group-hover:bg-mil-bg"></span>
+            </button>
+
+            <button 
+              onClick={() => setAppPhase('sandbox-lobby')}
+              className="w-full py-3 bg-cyan-950/20 text-[#00FFFF] border-2 border-[#00FFFF]/50 hover:border-[#00FFFF] hover:bg-[#00FFFF]/10 transition-all uppercase font-bold tracking-[0.2em] text-xs relative flex items-center justify-center px-6"
+            >
+              <span>[ SERBEST MOD (SANDBOX) ]</span>
+              <span className="status-dot-cyan absolute right-6 top-1/2 -translate-y-1/2"></span>
+            </button>
+
+            <button 
+              onClick={() => setAppPhase('multiplayer-lobby')}
+              className="w-full py-3.5 bg-transparent border-2 border-[#00FFFF] text-[#00FFFF] font-black tracking-[0.2em] hover:bg-[#00FFFF]/10 transition-all uppercase shadow-[0_0_15px_rgba(0,255,255,0.2)] text-xs relative flex items-center justify-center px-6"
+            >
+              <span>🌐 [ ÇEVRİMİÇİ SAVAŞ (1V1) ]</span>
+              <span className="status-dot-cyan absolute right-6 top-1/2 -translate-y-1/2"></span>
+            </button>
+
+            <button
+              id="btn-load-game"
+              onClick={() => setAppPhase('save-load')}
+              className="w-full py-2.5 bg-transparent hover:bg-mil-panel text-mil-green font-bold tracking-widest border border-mil-greenDim/50 transition-all text-xs flex items-center justify-center gap-2 px-6"
+            >
+              <span>📂 [ KAYIT YÜKLE ]</span>
+            </button>
+
+            <div className="grid grid-cols-2 gap-2 mt-2">
+              <button
+                onClick={() => setShowSettings(true)}
+                className="py-2.5 bg-transparent hover:bg-mil-panel text-[#00FFFF] font-bold tracking-wider border border-[#00FFFF]/30 transition-all text-[10px] uppercase"
+              >
+                ⚙️ [ AYARLAR ]
+              </button>
+              <button
+                onClick={() => setShowGuide(true)}
+                className="py-2.5 bg-transparent hover:bg-mil-panel text-mil-yellow font-bold tracking-wider border border-mil-yellow/30 transition-all text-[10px] uppercase shadow-[0_2px_8px_rgba(234,179,8,0.05)]"
+              >
+                📖 [ EL KİTABI ]
+              </button>
+            </div>
+
+            <button
+              onClick={() => setShowCredits(true)}
+              className="w-full py-2 bg-transparent hover:bg-mil-panel text-mil-dim font-bold tracking-widest border border-mil-border/50 transition-all text-[9px] uppercase mt-1"
+            >
+              📜 [ SİSTEM KÜNYESİ / CREDITS ]
+            </button>
           </div>
         </div>
 
-        {/* Mission briefing */}
-        <div className="border border-mil-border bg-mil-panel px-8 py-4 max-w-lg text-center">
-          <div className="text-mil-yellow text-xs tracking-widest mb-2">[ BRİFİNG ]</div>
-          <p className="text-mil-text text-sm leading-relaxed">
-            Siz <span className="text-mil-green font-bold">karargahdasınız.</span> Birimler sahada.
-            Telsiz bağlantısı aktif. Emirlerinizi verin, savaşı yönetin.
-          </p>
+        {/* Right Side Panel: Tactical Report (Desktop Only) */}
+        <div className="hidden lg:flex flex-col w-64 flex-shrink-0 gap-4">
+          <div className="terminal-grid-panel p-4 flex-1 flex flex-col min-h-[400px]">
+            <div className="terminal-scan-line" />
+            
+            <div className="border-b border-mil-yellow/20 pb-2 mb-4">
+              <span className="text-mil-yellow text-xs font-black tracking-widest uppercase glow-text-yellow flex items-center gap-2">
+                <span className="status-dot-yellow"></span> [ TAKTİK RAPOR ]
+              </span>
+            </div>
+            
+            <div className="flex-1 space-y-4 font-mono text-[10px] text-mil-dim leading-relaxed">
+              <div className="p-2 bg-red-950/10 border border-mil-red/20">
+                <div className="text-mil-red font-bold uppercase mb-1">TEHDİT SEVİYESİ</div>
+                <div className="text-mil-red font-black text-xs animate-pulse glow-text-red">
+                  HIGH / KRİTİK ALARM
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <div className="text-white/40 font-bold uppercase mb-1 text-[9px]">HAREKAT ALANI SEKTÖRLERİ</div>
+                <div className="flex justify-between border-b border-white/5 pb-1">
+                  <span>SEKTÖR ALFA (FOB)</span>
+                  <span className="text-mil-green font-bold">KONTROL ALTINDA</span>
+                </div>
+                <div className="flex justify-between border-b border-white/5 pb-1">
+                  <span>SEKTÖR BRAVO</span>
+                  <span className="text-[#FFD700] font-bold">ÇATIŞMA SÜRÜYOR</span>
+                </div>
+                <div className="flex justify-between border-b border-white/5 pb-1">
+                  <span>SEKTÖR CHARLIE</span>
+                  <span className="text-mil-red font-bold">DÜŞMAN KONTROLÜ</span>
+                </div>
+              </div>
+
+              <div className="space-y-1 mt-2">
+                <div className="text-white/40 font-bold uppercase mb-1 text-[9px]">HAVA HAREKATI</div>
+                <div className="flex justify-between border-b border-white/5 pb-1">
+                  <span>F-16 CAS DESTEĞİ</span>
+                  <span className="text-[#00FFFF] font-bold">HAZIR (0 DK)</span>
+                </div>
+                <div className="flex justify-between pb-1">
+                  <span>T-129 ATAK</span>
+                  <span className="text-mil-green font-bold">MUTABIK</span>
+                </div>
+              </div>
+
+              <div className="pt-2 mt-auto border-t border-mil-yellow/10 text-[8px] opacity-50 space-y-1">
+                <div>TACTICAL_LINK_UP: 100%</div>
+                <div>MEDEVAC_STATUS: IDLE</div>
+                <div>COGNITIVE_ENGINE: ANTGRAV_V2</div>
+              </div>
+            </div>
+          </div>
         </div>
 
-        {/* Menu buttons */}
-        <div className="flex flex-col gap-3 w-full max-w-xs">
-          <button 
-            onClick={() => setAppPhase('scenario-select')}
-            className="w-full py-4 bg-green-950 text-mil-red border-2 border-mil-red/30 font-black tracking-widest hover:bg-green-900 transition-all uppercase shadow-[0_5px_15px_rgba(239,68,68,0.2)] animate-glow"
-          >
-            Harekât Başlat
-          </button>
+      </div>
 
-          <button 
-            onClick={() => setAppPhase('sandbox-lobby')}
-            className="w-full py-4 bg-mil-panel border-2 border-mil-cyan text-mil-cyan font-black tracking-widest hover:bg-mil-cyan/10 transition-all uppercase"
-          >
-            Serbest Mod (Sandbox)
-          </button>
-
-          <button 
-            onClick={() => setAppPhase('multiplayer-lobby')}
-            className="w-full py-4 bg-transparent border-2 border-[#00FFFF] text-[#00FFFF] font-black tracking-widest hover:bg-[#00FFFF]/10 transition-all uppercase shadow-[0_0_15px_rgba(0,255,255,0.2)]"
-          >
-            🌐 ÇEVRİMİÇİ SAVAŞ (MULTIPLAYER)
-          </button>
-          <button
-            id="btn-load-game"
-            onClick={() => setAppPhase('save-load')}
-            className="w-full py-3 px-6 bg-transparent hover:bg-mil-panel text-mil-green font-bold tracking-wider border border-mil-greenDim transition-all duration-200 text-sm"
-          >
-            📂 KAYIT YÜKLE
-          </button>
-          <button
-            onClick={() => setShowSettings(true)}
-            className="w-full py-2 px-6 bg-transparent hover:bg-mil-panel text-[#00FFFF] font-bold tracking-wider border border-[#00FFFF]/30 transition-all duration-200 text-xs mt-1"
-          >
-            ⚙️ SES VE GÖRÜNTÜ AYARLARI
-          </button>
-           <button
-            onClick={() => setShowGuide(true)}
-            className="w-full py-3 px-6 bg-transparent hover:bg-mil-panel text-mil-yellow font-bold tracking-wider border border-mil-yellow/30 transition-all duration-200 text-sm mt-1 shadow-[0_4px_12px_rgba(234,179,8,0.1)]"
-          >
-            📖 NASIL OYNANIR? (REHBER)
-          </button>
-          <button
-            onClick={() => setShowCredits(true)}
-            className="w-full py-2 px-6 bg-transparent hover:bg-mil-panel text-mil-dim font-bold tracking-wider border border-mil-border transition-all duration-200 text-xs mt-1"
-          >
-            📜 HAKKINDA / CREDITS
-          </button>
-        </div>
-
-        {/* Footer & Social Links */}
-        <div className="flex flex-col items-center mt-6 gap-3">
-          <div className="flex gap-4">
+      {/* Footer & Social Links */}
+      <div className="relative z-10 flex flex-col items-center mt-2 gap-3">
+        <div className="flex gap-4">
             <a 
               href="https://discord.gg/UtZhzgnu3H" 
               target="_blank" 
@@ -159,7 +284,6 @@ export function MainMenu() {
             <span>KARARGAH SİM SİSTEMİ</span>
           </div>
         </div>
-      </div>
 
       {/* Credits Modal */}
       {showCredits && (
@@ -221,94 +345,91 @@ export function MainMenu() {
               <div className="text-center border-b border-mil-border/50 pb-6">
                 <h1 className="text-mil-green text-2xl font-black tracking-tighter mb-2">TAKTİKSEL SİMÜLASYON REHBERİ</h1>
                 <p className="text-mil-text text-sm italic opacity-80">
-                  Karargaha hoş geldin Komutan. Sahadaki birliklerin hayatı ve operasyonun başarısı, senin haritayı okuma ve telsiz ağını yönetme becerine bağlı. 
+                  Karargaha hoş geldin Komutan. Sahadaki birliklerin hayatı ve operasyonun başarısı, senin haritayı okuma, lojistik hattını ve telsiz ağını yönetme becerine bağlı.
                 </p>
               </div>
 
               <section>
                 <h2 className="text-mil-yellow font-bold text-lg mb-4 flex items-center gap-2 border-l-4 border-mil-yellow pl-3">
-                  1. TEMEL MEKANİKLER VE İLETİŞİM AĞI
+                  1. TEMEL KONTROLLER VE TAKTİK HAREKET
                 </h2>
-                <div className="space-y-4 text-mil-text text-sm leading-relaxed">
+                <div className="space-y-3 text-mil-text text-sm leading-relaxed">
                   <p>
-                    Oyun sıra tabanlı değil, <span className="text-mil-textBright font-bold underline decoration-mil-red">zaman akışlıdır (dakika bazlı simülasyon)</span>. Verdiğin hiçbir emir anında gerçekleşmez.
+                    Oyun dakika bazlı, dinamik bir simülasyondur. Birliklerinize verdiğiniz emirlerin işlenmesi ve hareketlerin gerçekleşmesi için sağ alttaki <strong>TURU BİTİR (+1 DK)</strong> veya <strong>+5 DK</strong> butonlarını kullanarak zamanı ilerletmelisiniz.
                   </p>
                   <ul className="list-disc list-inside space-y-2 marker:text-mil-green">
-                    <li><strong className="text-mil-green">İletişim Gecikmesi:</strong> Birliklere verdiğin emirler radyo dalgalarıyla iletilir. Hedef birlik karargahtan uzaksa, arada dağlar (<span className="text-mil-yellow">▲</span>) varsa veya şiddetli yağmur/fırtına yaşanıyorsa emirlerin ulaşması dakikalar sürebilir.</li>
-                    <li><strong className="text-mil-green">Otonomi ve Atış İzni (ROE):</strong> Birliklerinizle telsiz bağlantınız kopsa bile onlar savaşmaya devam eder. Önceden "Serbest Atış" veya "Sadece Karşılık Ver" gibi angajman kuralları belirlemeyi unutmayın.</li>
+                    <li><strong className="text-mil-green">Birim Seçimi:</strong> Harita üzerindeki yeşil NATO sembollerine tıklayarak veya sağ panelin en altında bulunan <strong>TİM LİSTESİ</strong> butonlarından birine tıklayarak askerinizi seçebilirsiniz.</li>
+                    <li><strong className="text-mil-green">İntikal (Hareket):</strong> Bir dost asker seçiliyken haritada boş bir hücreye tıkladığınızda o noktaya doğru hareket rotası çizilir.</li>
+                    <li><strong className="text-mil-green">Saldırı Rotaları:</strong> Bir dost asker seçiliyken haritadaki kırmızı bir düşmana tıkladığınızda ona doğru saldırı rotası belirlenir ve biriminiz menzile girdiğinde otomatik olarak çatışmaya girer.</li>
                   </ul>
                 </div>
               </section>
 
               <section>
                 <h2 className="text-mil-yellow font-bold text-lg mb-4 flex items-center gap-2 border-l-4 border-mil-yellow pl-3">
-                  2. BİRİM ROLLERİ VE LOJİSTİK
+                  2. TELSİZ GECİKMESİ VE İLETİŞİM AĞI
                 </h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {[
-                    { role: 'Piyade', desc: 'Temel savaş gücünüz.' },
-                    { role: 'Makineli Tüfek', desc: 'Düşmanı "Baskı Altına Alır" (Suppression) ve moralini kırar.' },
-                    { role: 'Keskin Nişancı', desc: '%30 kritik vuruş şansıyla piyadeleri uzaktan avlar.' },
-                    { role: 'Zırhlı (Tank)', desc: 'Yüksek hasar ve zırha sahiptir ancak görüşü dardır.' },
-                    { role: 'Mühendis', desc: 'Zırhlı hedefleri delmek için ekstra hasar bonusuna sahiptir.' }
-                  ].map((item, idx) => (
-                    <div key={idx} className="bg-mil-panel/50 p-3 border border-mil-border/50">
-                      <div className="text-mil-green font-bold text-xs uppercase mb-1 tracking-widest">{item.role}</div>
-                      <div className="text-mil-text text-xs leading-snug">{item.desc}</div>
-                    </div>
-                  ))}
-                </div>
-                <div className="mt-4 p-4 border border-mil-red/30 bg-red-950/10 text-xs italic">
-                  <strong className="text-mil-red uppercase">Lojistik Kuralı:</strong> Askerleriniz zaman geçtikçe Erzak ve Cephane tüketir. Canı 50'nin altına düşen askerler, envanterinde varsa otomatik olarak <span className="text-mil-green font-bold text-sm">Medkit</span> kullanır. Telsizden ikmal çağırmayı unutmayın!
+                <div className="space-y-3 text-mil-text text-sm leading-relaxed">
+                  <p>
+                    Haritada karargahtan uzaklaştıkça telsiz sinyal kalitesi düşer. Aradaki dağlar (▲), olumsuz hava şartları (Sis, Fırtına vb.) telsiz gecikmesini artırır.
+                  </p>
+                  <ul className="list-disc list-inside space-y-2 marker:text-mil-green">
+                    <li><strong className="text-mil-green">Emir Gecikmesi:</strong> Telsiz sinyal gücünüze bağlı olarak gönderdiğiniz emirler birimlerinize birkaç dakika (tur) gecikmeyle ulaşabilir.</li>
+                    <li><strong className="text-mil-green">Telsiz Röle İstasyonu:</strong> Askerlerinize bulundukları yere telsiz rölesi (<code>telsiz_kur</code>) kurdurarak sinyal kapsamını artırabilir ve gecikmeleri tamamen sıfırlayabilirsiniz.</li>
+                  </ul>
                 </div>
               </section>
 
               <section>
                 <h2 className="text-mil-yellow font-bold text-lg mb-4 flex items-center gap-2 border-l-4 border-mil-yellow pl-3">
-                  3. İLERİ DÜZEY SAHA TAKTİKLERİ
+                  3. LOJİSTİK, BARK VE BİRİM ROLLERİ
                 </h2>
-                <div className="space-y-4">
-                  <div className="flex gap-4 items-start">
-                    <span className="text-mil-green text-xl">🛡</span>
-                    <div>
-                      <div className="text-mil-textBright font-bold text-sm mb-1">Örs ve Çekiç</div>
-                      <p className="text-mil-dim text-xs leading-relaxed">Bir Makineli Tüfek (MG) birimiyle düşmana baskı ateşi açıp morallerini düşürün. Düşman başını kaldıramazken Keskin Nişancınızla uzaktan işi bitirin.</p>
-                    </div>
-                  </div>
-                  <div className="flex gap-4 items-start">
-                    <span className="text-mil-green text-xl">⛈</span>
-                    <div>
-                      <div className="text-mil-textBright font-bold text-sm mb-1">Fırtına Savunması</div>
-                      <p className="text-mil-dim text-xs leading-relaxed">Fırtınalı havalarda telsizler kesilir ve ATAK helikopterleri uçamaz. Hava bozduğunda birliklerinizi güvenli konumlara çekip fırtınanın geçmesini bekleyin.</p>
-                    </div>
-                  </div>
-                  <div className="flex gap-4 items-start">
-                    <span className="text-mil-green text-xl">🚜</span>
-                    <div>
-                      <div className="text-mil-textBright font-bold text-sm mb-1">Zırhlı Öncü, Mühendis Artçı</div>
-                      <p className="text-mil-dim text-xs leading-relaxed">Zırhlıları önden sürüp düşman ateşini üzerinize çekin. Ancak tankınızı korumak için hemen arkasında düşman zırhlılarını delecek Mühendislerinizi hazır tutun.</p>
-                    </div>
-                  </div>
+                <div className="space-y-3 text-mil-text text-sm leading-relaxed">
+                  <p>
+                    Birlikleriniz zaman geçtikçe <strong>Cephane</strong> ve <strong>Erzak</strong> tüketir. Lojistik desteği kesilen birimlerin morali ve savaş gücü hızla düşer.
+                  </p>
+                  <ul className="list-disc list-inside space-y-2 marker:text-mil-green">
+                    <li><strong className="text-mil-green">İkmal Talebi:</strong> Sağ panelden puan harcayarak cephane, erzak, medkit veya inşaat malzemesi talep edebilirsiniz.</li>
+                    <li><strong className="text-mil-green">İstihkam ve İnşaat:</strong> Mühendis (Engineer) birimleri haritada <strong>FOB Karargahı</strong> (telsiz sıfırlar), <strong>Sahra Hastanesi</strong> (pasif iyileştirme), <strong>Mühimmat Deposu</strong> veya <strong>Kum Torbası</strong> (ağır siper) inşa edebilir.</li>
+                  </ul>
+                </div>
+              </section>
+
+              <section>
+                <h2 className="text-mil-yellow font-bold text-lg mb-4 flex items-center gap-2 border-l-4 border-mil-yellow pl-3">
+                  4. YARALI TAHLİYESİ VE CARRY (TAŞIMA) SİSTEMİ
+                </h2>
+                <div className="space-y-3 text-mil-text text-sm leading-relaxed">
+                  <p>
+                    Çatışmada canı 20 HP veya altına düşen askerler <strong>Ağır Yaralı (Incapacitated)</strong> durumuna geçer ve yere yığılır. Kendi başlarına hareket edemez veya ateş edemezler.
+                  </p>
+                  <ul className="list-disc list-inside space-y-2 marker:text-mil-green">
+                    <li><strong className="text-mil-green">Yaralı Taşıma (Carry):</strong> Sağlıklı bir askeri yaralının yanındaki hücreye getirip sağ paneldeki <strong>🚑 Taşı</strong> butonuna tıklayarak yaralıyı sırtlayabilirsiniz. Sırtlanan yaralı taşıyıcıyla birlikte hareket eder. <code>birak</code> komutuyla yaralıyı yere bırakabilirsiniz.</li>
+                    <li><strong className="text-mil-green">Sahra Hastanesinde Tedavi:</strong> Yaralıları sırtlayarak sahra hastanesine (FOB_HOSPITAL) getirdiğinizde, turlar geçtikçe pasif olarak iyileşirler. Canları 20 HP'nin üzerine çıktığı anda ayağa kalkıp aktif göreve dönerler.</li>
+                  </ul>
                 </div>
               </section>
 
               <section className="bg-mil-panel p-6 border border-mil-cyan/30">
                 <h2 className="text-mil-cyan font-bold text-lg mb-4 flex items-center gap-2 border-l-4 border-mil-cyan pl-3">
-                   4. HAVA DESTEK UNSURLARI
+                  5. HAVA DESTEK VE UH-60 MEDEVAC SİSTEMİ
                 </h2>
-                <div className="space-y-3 text-xs">
-                  <p className="text-mil-dim italic mb-2">Karargahın ateş ve kurtarma desteğini kullanın, ancak gecikmeleri unutmayın:</p>
-                  <div className="flex justify-between items-center border-b border-mil-border pb-2">
+                <div className="space-y-3 text-xs leading-relaxed">
+                  <div className="border-b border-mil-border pb-3">
+                    <strong className="text-mil-cyan uppercase">🚑 UH-60 MEDEVAC TAHLİYESİ:</strong> Haritadan herhangi bir askeri seçip üstteki <strong>MEDEVAC</strong> butonuna tıklayın, ardından haritada taşınacağı iniş noktasını seçin. Helikopter havadan yola çıkar. Helikopter havada veya sahada yaralıyı alırken <strong>TURU İLERLETMELİSİNİZ</strong>.
+                    <p className="mt-1 text-mil-dim">Yaralı asker helikopterle hedef noktaya ulaştığında otomatik olarak tedavi edilir ve 50 HP kazandırılarak ayağa kaldırılır. Helikopter havada iken telsiz sinyali ve hava durumuna göre düşürülme riski taşır.</p>
+                  </div>
+                  <div className="flex justify-between items-center border-b border-mil-border pb-2 pt-1">
                     <span className="text-mil-textBright font-bold underline decoration-mil-yellow">TOPÇU ATIŞI</span>
-                    <span className="text-mil-text text-[10px] opacity-70">GENİŞ ALAN / PİYADE İMHASI</span>
+                    <span className="text-mil-text text-[10px] opacity-70">GENİŞ ALAN PİYADE İMHASI</span>
                   </div>
                   <div className="flex justify-between items-center border-b border-mil-border pb-2">
                     <span className="text-mil-textBright font-bold underline decoration-mil-green">T-129 ATAK</span>
-                    <span className="text-mil-text text-[10px] opacity-70">NOKTA ATIŞI / ZIRHLI İMHASI</span>
+                    <span className="text-mil-text text-[10px] opacity-70">NOKTA ATIŞI DÜŞMAN ZIRHLI İMHASI</span>
                   </div>
                   <div className="flex justify-between items-center border-b border-mil-border pb-2">
-                    <span className="text-mil-textBright font-bold underline decoration-mil-cyan">UH-60 BLACK HAWK</span>
-                    <span className="text-mil-text text-[10px] opacity-70">TAHLİYE / GLOBAL MORAL BUFF</span>
+                    <span className="text-mil-textBright font-bold underline decoration-mil-red">✈️ F-16 HAVA SALDIRISI</span>
+                    <span className="text-mil-text text-[10px] opacity-70">BÜYÜK ALAN HAVA BOMBARDIMANI</span>
                   </div>
                 </div>
               </section>

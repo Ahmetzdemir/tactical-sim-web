@@ -36,7 +36,7 @@ export const MultiplayerLogic = {
   /**
    * Düşman saldırısını hesaplar.
    */
-  processEnemyImpact: (enemy: EnemyUnit, unit: Soldier, map: MapGrid) => {
-    return CombatSystem.resolveEnemyAttack(enemy, unit, map);
+  processEnemyImpact: (enemy: EnemyUnit, unit: Soldier, map: MapGrid, dmgMultiplier: number = 1.0) => {
+    return CombatSystem.resolveEnemyAttack(enemy, unit, map, dmgMultiplier);
   }
 };

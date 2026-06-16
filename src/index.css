@@ -207,3 +207,218 @@ html, body, #root {
   color: var(--terminal-cyan);
   opacity: 0.7;
 }
+
+/* ============================================================ */
+/* ABILITY ANIMATION OVERLAYS                                    */
+/* ============================================================ */
+
+/* ── TOPÇU (Artillery) ──────────────────────────────────────── */
+@keyframes artilleryShockwave {
+  0%   { transform: scale(0.1); opacity: 1; }
+  60%  { transform: scale(1.2); opacity: 0.6; }
+  100% { transform: scale(2.0); opacity: 0; }
+}
+@keyframes artilleryFlash {
+  0%   { opacity: 0; }
+  10%  { opacity: 1; }
+  40%  { opacity: 0.8; }
+  100% { opacity: 0; }
+}
+@keyframes debrisRise {
+  0%   { transform: translate(0, 0) scale(1); opacity: 1; }
+  100% { transform: translate(var(--dx), var(--dy)) scale(0.3); opacity: 0; }
+}
+.artillery-flash   { animation: artilleryFlash 0.5s ease-out forwards; }
+.artillery-wave    { animation: artilleryShockwave 0.9s cubic-bezier(0.2, 0.8, 0.4, 1) forwards; }
+.debris-particle   { animation: debrisRise 0.8s ease-out forwards; }
+
+/* ── F-16 (Air Strike) ──────────────────────────────────────── */
+/* Plane pivots at (tx, ty); starts far left, crosses through, exits far right */
+@keyframes f16FlyIn {
+  0%   { transform: translate(calc(-50% - 200px), -50%) rotate(-8deg); opacity: 0; }
+  15%  { opacity: 1; }
+  50%  { transform: translate(-50%, -50%) rotate(-8deg); opacity: 1; }
+  85%  { opacity: 1; }
+  100% { transform: translate(calc(-50% + 220px), -50%) rotate(-8deg); opacity: 0; }
+}
+@keyframes bombDrop {
+  0%   { transform: translateX(-50%) translateY(0) scaleY(1); opacity: 1; }
+  70%  { transform: translateX(-50%) translateY(160%) scaleY(2); opacity: 0.85; }
+  100% { transform: translateX(-50%) translateY(160%) scaleY(2); opacity: 0; }
+}
+@keyframes strikeBlast {
+  0%   { transform: translate(-50%,-50%) scale(0); opacity: 1; }
+  50%  { transform: translate(-50%,-50%) scale(1.5); opacity: 0.9; }
+  100% { transform: translate(-50%,-50%) scale(3); opacity: 0; }
+}
+@keyframes sonicBoom {
+  0%   { transform: translateY(-50%) scaleX(0); opacity: 0.7; }
+  100% { transform: translateY(-50%) scaleX(3); opacity: 0; }
+}
+.f16-plane       { animation: f16FlyIn 1.3s ease-in-out forwards; }
+.bomb-drop       { animation: bombDrop 0.55s ease-in forwards; animation-delay: 0.55s; opacity: 0; }
+.strike-blast    { animation: strikeBlast 0.85s ease-out forwards; animation-delay: 0.9s; opacity: 0; }
+.sonic-boom      { animation: sonicBoom 0.45s ease-out forwards; }
+
+/* ── ATAK Helicopter ────────────────────────────────────────── */
+/* Heli pivots at (tx, ty); enters from right, hovers, fires, exits left */
+@keyframes atakFlyIn {
+  0%   { transform: translate(calc(-50% + 220px), -50%); opacity: 0; }
+  20%  { opacity: 1; }
+  45%  { transform: translate(-50%, -50%); opacity: 1; }
+  72%  { transform: translate(-50%, -50%); opacity: 1; }
+  100% { transform: translate(calc(-50% - 220px), -50%); opacity: 0; }
+}
+@keyframes rotorSpin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+@keyframes rocketFire {
+  0%   { transform: scaleX(0.1) translateX(0); opacity: 1; }
+  70%  { transform: scaleX(1) translateX(200%); opacity: 0.7; }
+  100% { transform: scaleX(1) translateX(200%); opacity: 0; }
+}
+@keyframes rocketImpact {
+  0%   { transform: scale(0.1); opacity: 1; }
+  50%  { transform: scale(1.4); opacity: 0.9; }
+  100% { transform: scale(2.0); opacity: 0; }
+}
+@keyframes atakHover {
+  0%, 100% { transform: translateY(0); }
+  50%       { transform: translateY(-4px); }
+}
+.atak-heli       { animation: atakFlyIn 2.2s ease-in-out forwards; }
+.rotor-spin      { animation: rotorSpin 0.15s linear infinite; }
+.rocket-fire     { animation: rocketFire 0.4s ease-out forwards; }
+.rocket-impact   { animation: rocketImpact 0.6s ease-out forwards; animation-delay: 0.35s; opacity: 0; }
+
+/* ── MEDEVAC (UH-60) ────────────────────────────────────────── */
+/* Heli pivots at (tx, ty) offset upward; enters from left, hovers, exits left-up */
+@keyframes medevacFlyIn {
+  0%   { transform: translate(calc(-50% - 220px), -60%); opacity: 0; }
+  18%  { opacity: 1; }
+  45%  { transform: translate(-50%, -60%); opacity: 1; }
+  72%  { transform: translate(-50%, -60%); opacity: 1; }
+  100% { transform: translate(calc(-50% - 220px), calc(-60% - 50px)); opacity: 0; }
+}
+@keyframes winchDrop {
+  0%   { transform: scaleY(0); transform-origin: top; opacity: 1; }
+  50%  { transform: scaleY(1); transform-origin: top; opacity: 1; }
+  80%  { transform: scaleY(1); transform-origin: top; opacity: 1; }
+  100% { transform: scaleY(0); transform-origin: top; opacity: 0; }
+}
+@keyframes redCrossGlow {
+  0%, 100% { filter: drop-shadow(0 0 4px #ef4444); }
+  50%       { filter: drop-shadow(0 0 12px #ef4444); }
+}
+@keyframes medevacPulse {
+  0%, 100% { opacity: 0.5; transform: scale(1); }
+  50%       { opacity: 1;   transform: scale(1.15); }
+}
+.medevac-heli    { animation: medevacFlyIn 3.0s ease-in-out forwards; }
+.winch-cable     { animation: winchDrop 1.8s ease-in-out forwards; animation-delay: 0.6s; opacity: 0; transform-origin: top; }
+.red-cross-glow  { animation: redCrossGlow 0.8s ease-in-out infinite; }
+.medevac-ring    { animation: medevacPulse 1s ease-in-out infinite; }
+
+/* ── COMMAND TERMINAL PREMIUM STYLES ─────────────────────────── */
+@keyframes crtFlicker {
+  0% { opacity: 0.97; }
+  50% { opacity: 1; }
+  100% { opacity: 0.98; }
+}
+
+@keyframes scanlineMove {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(100%); }
+}
+
+@keyframes statusPulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+
+.crt-flicker {
+  animation: crtFlicker 0.15s infinite;
+}
+
+.terminal-grid-panel {
+  background: rgba(17, 24, 39, 0.75);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(0, 255, 255, 0.15);
+  box-shadow: inset 0 0 15px rgba(0, 255, 255, 0.05), 0 4px 20px rgba(0, 0, 0, 0.5);
+  position: relative;
+  overflow: hidden;
+}
+
+.terminal-grid-panel::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    transparent 50%,
+    rgba(0, 255, 255, 0.03) 50%
+  );
+  background-size: 100% 4px;
+  pointer-events: none;
+}
+
+.terminal-scan-line {
+  position: absolute;
+  width: 100%;
+  height: 2px;
+  background: rgba(0, 255, 255, 0.2);
+  box-shadow: 0 0 8px rgba(0, 255, 255, 0.5);
+  animation: scanlineMove 6s linear infinite;
+  pointer-events: none;
+}
+
+.status-dot-green {
+  width: 6px;
+  height: 6px;
+  background: #00FF00;
+  border-radius: 50%;
+  box-shadow: 0 0 6px #00FF00;
+  animation: statusPulse 1.5s infinite;
+}
+
+.status-dot-red {
+  width: 6px;
+  height: 6px;
+  background: #ef4444;
+  border-radius: 50%;
+  box-shadow: 0 0 6px #ef4444;
+  animation: statusPulse 1s infinite;
+}
+
+.status-dot-yellow {
+  width: 6px;
+  height: 6px;
+  background: #FFD700;
+  border-radius: 50%;
+  box-shadow: 0 0 6px #FFD700;
+  animation: statusPulse 1.25s infinite;
+}
+
+.status-dot-cyan {
+  width: 6px;
+  height: 6px;
+  background: #00FFFF;
+  border-radius: 50%;
+  box-shadow: 0 0 6px #00FFFF;
+  animation: statusPulse 1.25s infinite;
+}
+
+
+.glow-text-cyan {
+  text-shadow: 0 0 8px rgba(0, 255, 255, 0.5);
+}
+
+.glow-text-green {
+  text-shadow: 0 0 8px rgba(0, 255, 0, 0.5);
+}
+
+.glow-text-red {
+  text-shadow: 0 0 8px rgba(255, 0, 0, 0.5);
+}
+

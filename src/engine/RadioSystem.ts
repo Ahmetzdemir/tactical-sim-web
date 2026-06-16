@@ -48,7 +48,10 @@ export class RadioSystem {
   // Callback for when a new message is ready to display
   onMessage?: (msg: RadioMessage) => void
 
-  constructor(private delayCalculator: (unitId: string) => DelayBreakdown) {}
+  constructor(
+    private delayCalculator: (unitId: string) => DelayBreakdown,
+    private isNearRadioRelay?: (unitId: string) => boolean
+  ) {}
 
   getPendingCount(): number {
     return this.commandQueue.length + this.reportQueue.length
@@ -78,16 +81,24 @@ export class RadioSystem {
     targetId = '',
     category = ReportCategory.REGULAR,
   ): void {
-    const willCorrupt = Math.random() < corruptChance || this.signalStrength < 0.4
+    let finalMsg = message
+    let finalCorruptChance = corruptChance
+
+    if (this.isNearRadioRelay?.(fromUnitId)) {
+      finalMsg = `📡 [RÖLE]: ` + message
+      finalCorruptChance = 0.0
+    }
+
+    const willCorrupt = Math.random() < finalCorruptChance || (this.isNearRadioRelay?.(fromUnitId) ? false : this.signalStrength < 0.4)
     const delayInfo = this.getDelayInfo(fromUnitId)
     const delay = type === ReportType.ENGAGEMENT_REQUEST ? 0 : delayInfo.total
     const deliveryTick = currentTick + delay
-    const finalMsg = willCorrupt ? corruptMessage(message) : message
+    const finalCorruptedMsg = willCorrupt ? corruptMessage(finalMsg) : finalMsg
     const sTick = sentTick === -1 ? currentTick : sentTick
 
     this.reportQueue.push({
       fromUnitId,
-      rawMessage: finalMsg,
+      rawMessage: finalCorruptedMsg,
       deliveryTick,
       sentTick: sTick,
       corrupted: willCorrupt,
@@ -180,9 +191,10 @@ export class RadioSystem {
 
   static deserialize(
     data: Record<string, unknown>,
-    delayCalculator: (unitId: string) => DelayBreakdown
+    delayCalculator: (unitId: string) => DelayBreakdown,
+    isNearRadioRelay?: (unitId: string) => boolean
   ): RadioSystem {
-    const r = new RadioSystem(delayCalculator)
+    const r = new RadioSystem(delayCalculator, isNearRadioRelay)
     r.commandQueue = data.commandQueue as PendingCommand[]
     r.reportQueue = data.reportQueue as PendingReport[]
     r.signalStrength = data.signalStrength as number
