@@ -7,73 +7,104 @@ import { NatoUnitIcon } from './NatoUnitIcon'
 import { AnimationOverlay, type AbilityAnimation } from './AnimationOverlay'
 
 const TERRAIN_BG_CLASS: Record<TerrainType, string> = {
-  [TerrainType.OPEN]:         'bg-[#0A0E17]',
-  [TerrainType.CITY]:         'bg-[#0b131f]',
-  [TerrainType.FOREST]:       'bg-[#081512]',
-  [TerrainType.MOUNTAIN]:     'bg-[#12161a]',
-  [TerrainType.BRIDGE]:       'bg-[#0e1726]',
-  [TerrainType.FOB_COMMAND]:  'bg-[#1e152a]',
-  [TerrainType.FOB_HOSPITAL]: 'bg-[#152a25]',
-  [TerrainType.FOB_SUPPLY]:   'bg-[#2a2215]',
-  [TerrainType.FOB_SANDBAGS]: 'bg-[#1c1d1a]',
+  [TerrainType.OPEN]:         'bg-[#090d16]', // Dim dark
+  [TerrainType.CITY]:         'bg-[#0f172a]', // Steel slate
+  [TerrainType.FOREST]:       'bg-[#062016]', // Dark forest green
+  [TerrainType.MOUNTAIN]:     'bg-[#1c1917]', // Rock dark brown
+  [TerrainType.BRIDGE]:       'bg-[#0f1e2e]', // River dark blue tint
+  [TerrainType.FOB_COMMAND]:  'bg-[#2e1f4d]', // Commander violet tint
+  [TerrainType.FOB_HOSPITAL]: 'bg-[#143d2c]', // Field hospital green tint
+  [TerrainType.FOB_SUPPLY]:   'bg-[#4d3319]', // Ammo depot amber tint
+  [TerrainType.FOB_SANDBAGS]: 'bg-[#292524]', // Sandbags gray tint
 }
 
-const renderTerrainSvg = (terrain: TerrainType) => {
+const renderTerrainSvg = (terrain: TerrainType, x: number = 0, y: number = 0, grid?: TerrainType[][]) => {
   switch (terrain) {
     case TerrainType.OPEN:
       return (
         <svg viewBox="0 0 100 100" className="absolute inset-0 w-full h-full pointer-events-none opacity-[0.08] z-0">
-          <path d="M 45,50 L 55,50 M 50,45 L 50,55" stroke="#00FFFF" strokeWidth="1.5" />
+          <path d="M 45,50 L 55,50 M 50,45 L 50,55" stroke="rgba(0, 255, 255, 0.5)" strokeWidth="1.5" />
         </svg>
       )
     case TerrainType.MOUNTAIN:
       return (
-        <svg viewBox="0 0 100 100" className="absolute inset-0 w-full h-full pointer-events-none opacity-[0.15] z-0">
-          <path d="M 10,80 Q 35,45 50,80 Q 65,25 90,80" fill="none" stroke="#00FFFF" strokeWidth="2.5" />
-          <path d="M 25,80 Q 40,55 50,80 Q 60,40 75,80" fill="none" stroke="#00FFFF" strokeWidth="2.5" />
-          <path d="M 35,80 Q 50,65 65,80" fill="none" stroke="#00FFFF" strokeWidth="2.5" />
+        <svg viewBox="0 0 100 100" className="absolute inset-0 w-full h-full pointer-events-none opacity-[0.25] z-0">
+          {/* Rocky Slate Gray Mountains */}
+          <path d="M 10,80 Q 35,45 50,80 Q 65,25 90,80" fill="none" stroke="#cbd5e1" strokeWidth="2.5" />
+          <path d="M 25,80 Q 40,55 50,80 Q 60,40 75,80" fill="none" stroke="#94a3b8" strokeWidth="2.5" />
+          <path d="M 35,80 Q 50,65 65,80" fill="none" stroke="#64748b" strokeWidth="2.5" />
         </svg>
       )
     case TerrainType.FOREST:
       return (
-        <svg viewBox="0 0 100 100" className="absolute inset-0 w-full h-full pointer-events-none opacity-[0.2] z-0">
-          {/* Tree 1 */}
-          <polygon points="50,15 35,45 65,45" fill="none" stroke="#00FF00" strokeWidth="2.5" />
-          <line x1="50" y1="45" x2="50" y2="55" stroke="#00FF00" strokeWidth="2.5" />
-          {/* Tree 2 */}
-          <polygon points="30,35 20,60 40,60" fill="none" stroke="#00FF00" strokeWidth="2.5" />
-          <line x1="30" y1="60" x2="30" y2="68" stroke="#00FF00" strokeWidth="2.5" />
-          {/* Tree 3 */}
-          <polygon points="70,40 60,65 80,65" fill="none" stroke="#00FF00" strokeWidth="2.5" />
-          <line x1="70" y1="65" x2="70" y2="73" stroke="#00FF00" strokeWidth="2.5" />
+        <svg viewBox="0 0 100 100" className="absolute inset-0 w-full h-full pointer-events-none opacity-[0.35] z-0">
+          {/* Deep Forest Green Pine Trees */}
+          <polygon points="50,15 35,45 65,45" fill="none" stroke="#10b981" strokeWidth="2.5" />
+          <line x1="50" y1="45" x2="50" y2="55" stroke="#10b981" strokeWidth="2.5" />
+          <polygon points="30,35 20,60 40,60" fill="none" stroke="#059669" strokeWidth="2.5" />
+          <line x1="30" y1="60" x2="30" y2="68" stroke="#059669" strokeWidth="2.5" />
+          <polygon points="70,40 60,65 80,65" fill="none" stroke="#047857" strokeWidth="2.5" />
+          <line x1="70" y1="65" x2="70" y2="73" stroke="#047857" strokeWidth="2.5" />
         </svg>
       )
     case TerrainType.CITY:
       return (
-        <svg viewBox="0 0 100 100" className="absolute inset-0 w-full h-full pointer-events-none opacity-[0.12] z-0">
-          <rect x="15" y="15" width="22" height="22" fill="none" stroke="#00FFFF" strokeWidth="2" />
-          <rect x="47" y="15" width="38" height="22" fill="none" stroke="#00FFFF" strokeWidth="2" />
-          <rect x="15" y="47" width="28" height="38" fill="none" stroke="#00FFFF" strokeWidth="2" />
-          <rect x="53" y="47" width="32" height="20" fill="none" stroke="#00FFFF" strokeWidth="2" />
-          <rect x="53" y="77" width="32" height="8" fill="none" stroke="#00FFFF" strokeWidth="2" />
+        <svg viewBox="0 0 100 100" className="absolute inset-0 w-full h-full pointer-events-none opacity-[0.25] z-0">
+          {/* Cyan/Blue Neon City Blocks */}
+          <rect x="15" y="15" width="22" height="22" fill="none" stroke="#06b6d4" strokeWidth="2" />
+          <rect x="47" y="15" width="38" height="22" fill="none" stroke="#38bdf8" strokeWidth="2" />
+          <rect x="15" y="47" width="28" height="38" fill="none" stroke="#0891b2" strokeWidth="2" />
+          <rect x="53" y="47" width="32" height="20" fill="none" stroke="#0284c7" strokeWidth="2" />
+          <rect x="53" y="77" width="32" height="8" fill="none" stroke="#0369a1" strokeWidth="2" />
         </svg>
       )
-    case TerrainType.BRIDGE:
+    case TerrainType.BRIDGE: {
+      const left = !!(grid && x > 0 && grid[y]?.[x - 1] === TerrainType.BRIDGE)
+      const right = !!(grid && grid[y] && x < grid[y].length - 1 && grid[y]?.[x + 1] === TerrainType.BRIDGE)
+      const up = !!(grid && y > 0 && grid[y - 1]?.[x] === TerrainType.BRIDGE)
+      const down = !!(grid && y < grid.length - 1 && grid[y + 1]?.[x] === TerrainType.BRIDGE)
+
       return (
-        <svg viewBox="0 0 100 100" className="absolute inset-0 w-full h-full pointer-events-none opacity-[0.18] z-0">
-          {/* Water ripples */}
-          <path d="M 0,20 Q 25,25 50,20 T 100,20 M 0,80 Q 25,85 50,80 T 100,80" fill="none" stroke="#38bdf8" strokeWidth="1.5" strokeDasharray="3,3" />
-          {/* Bridge tracks */}
-          <line x1="0" y1="38" x2="100" y2="38" stroke="#FFD700" strokeWidth="2.5" />
-          <line x1="0" y1="62" x2="100" y2="62" stroke="#FFD700" strokeWidth="2.5" />
-          {/* Cross truss beams */}
-          <line x1="12" y1="38" x2="28" y2="62" stroke="#FFD700" stroke="2" />
-          <line x1="28" y1="62" x2="44" y2="38" stroke="#FFD700" stroke="2" />
-          <line x1="44" y1="38" x2="60" y2="62" stroke="#FFD700" stroke="2" />
-          <line x1="60" y1="62" x2="76" y2="38" stroke="#FFD700" stroke="2" />
-          <line x1="76" y1="38" x2="92" y2="62" stroke="#FFD700" stroke="2" />
+        <svg viewBox="0 0 100 100" className="absolute inset-0 w-full h-full pointer-events-none opacity-[0.4] z-0">
+          {/* Base water pool in the center */}
+          <rect x="25" y="25" width="50" height="50" fill="#0284c7" />
+          
+          {/* Water extensions to connect tiles */}
+          {left && <rect x="0" y="25" width="25" height="50" fill="#0284c7" />}
+          {right && <rect x="75" y="25" width="25" height="50" fill="#0284c7" />}
+          {up && <rect x="25" y="0" width="50" height="25" fill="#0284c7" />}
+          {down && <rect x="25" y="75" width="50" height="25" fill="#0284c7" />}
+          
+          {/* Subtle water texture lines */}
+          <line x1="30" y1="50" x2="70" y2="50" stroke="#38bdf8" strokeWidth="1" opacity="0.3" strokeDasharray="4,4" />
+
+          {/* Dynamic bridge tracks based on neighbor direction */}
+          {(left || right) && !(up || down) ? (
+            <>
+              {/* Vertical bridge crossing horizontal flow */}
+              <line x1="35" y1="0" x2="35" y2="100" stroke="#FFD700" strokeWidth="2.5" />
+              <line x1="65" y1="0" x2="65" y2="100" stroke="#FFD700" strokeWidth="2.5" />
+              <line x1="35" y1="15" x2="65" y2="15" stroke="#ca8a04" strokeWidth="1.5" />
+              <line x1="35" y1="35" x2="65" y2="35" stroke="#ca8a04" strokeWidth="1.5" />
+              <line x1="35" y1="55" x2="65" y2="55" stroke="#ca8a04" strokeWidth="1.5" />
+              <line x1="35" y1="75" x2="65" y2="75" stroke="#ca8a04" strokeWidth="1.5" />
+              <line x1="35" y1="95" x2="65" y2="95" stroke="#ca8a04" strokeWidth="1.5" />
+            </>
+          ) : (
+            <>
+              {/* Horizontal bridge crossing vertical flow (or isolated bridge) */}
+              <line x1="0" y1="35" x2="100" y2="35" stroke="#FFD700" strokeWidth="2.5" />
+              <line x1="0" y1="65" x2="100" y2="65" stroke="#FFD700" strokeWidth="2.5" />
+              <line x1="15" y1="35" x2="15" y2="65" stroke="#ca8a04" strokeWidth="1.5" />
+              <line x1="35" y1="35" x2="35" y2="65" stroke="#ca8a04" strokeWidth="1.5" />
+              <line x1="55" y1="35" x2="55" y2="65" stroke="#ca8a04" strokeWidth="1.5" />
+              <line x1="75" y1="35" x2="75" y2="65" stroke="#ca8a04" strokeWidth="1.5" />
+              <line x1="95" y1="35" x2="95" y2="65" stroke="#ca8a04" strokeWidth="1.5" />
+            </>
+          )}
         </svg>
       )
+    }
     case TerrainType.FOB_COMMAND:
       return (
         <svg viewBox="0 0 100 100" className="absolute inset-0 w-full h-full pointer-events-none opacity-[0.45] z-0">
@@ -115,6 +146,7 @@ const renderTerrainSvg = (terrain: TerrainType) => {
       return null
   }
 }
+
 
 const renderCapturePointSvg = () => {
   return (
@@ -172,6 +204,7 @@ interface MapCellProps {
   onMouseLeave: () => void
   activeConstruction?: { structureType: TerrainType; progress: number; targetProgress: number }
   airdropAmount?: number
+  grid?: TerrainType[][]
 }
 
 const MapCell = memo(function MapCell({
@@ -194,6 +227,7 @@ const MapCell = memo(function MapCell({
   onMouseLeave,
   activeConstruction,
   airdropAmount,
+  grid,
 }: MapCellProps) {
   return (
     <div
@@ -231,7 +265,26 @@ const MapCell = memo(function MapCell({
         <span className="absolute top-0.5 right-1 text-[8px] text-[#00FFFF] opacity-60 pointer-events-none select-none" title="Telsiz Röle Kapsama Alanı">📶</span>
       )}
       {/* Terrain SVG Layer */}
-      {isDiscovered && renderTerrainSvg(terrain)}
+      {isDiscovered && renderTerrainSvg(terrain, x, y, grid)}
+
+      {/* Cover Indicator Badge */}
+      {isDiscovered && (unitHere || enemyHere) && (terrain === TerrainType.FOREST || terrain === TerrainType.CITY || terrain === TerrainType.MOUNTAIN || terrain === TerrainType.FOB_SANDBAGS) && (
+        <div
+          className="absolute top-0.5 left-0.5 z-20 flex items-center gap-0.5 px-0.5 py-0.2 rounded border bg-slate-950/80 pointer-events-none select-none"
+          style={{
+            borderColor: unitHere ? '#10b981' : '#ef4444',
+            color: unitHere ? '#34d399' : '#f87171',
+            fontSize: '6px',
+            lineHeight: '1',
+            transform: 'scale(0.85)',
+            transformOrigin: 'top left',
+          }}
+          title={unitHere ? 'Dost Birlik Siperde' : 'Düşman Birlik Siperde'}
+        >
+          <span>🛡️</span>
+          <span className="font-bold tracking-tight text-[5px]">SİPER</span>
+        </div>
+      )}
 
       {/* Selection / Target Reticles */}
       {isSelectedUnit && renderSelectionReticle('#00FF00')}
@@ -658,6 +711,7 @@ export function MapGridComponent() {
                     onMouseLeave={handleMouseLeave}
                     activeConstruction={activeConstr}
                     airdropAmount={airdrop?.amount}
+                    grid={grid}
                   />
                 )
               })
