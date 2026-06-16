@@ -56,7 +56,7 @@ export interface GameState {
   t129Cooldown: number
   uh60State: 'idle' | 'flying' | 'loading'
   uh60Timer: number
-  uh60Target: { x: number; y: number; unitId: string } | null
+  uh60Target: { x: number; y: number; destX: number; destY: number; unitId: string } | null
   restrictions?: {
     artilleryDisabled?: boolean
     airstrikeDisabled?: boolean
@@ -112,7 +112,7 @@ export class GameEngine {
   private t129Cooldown: number = 0
   private uh60State: 'idle' | 'flying' | 'loading' = 'idle'
   private uh60Timer: number = 0
-  private uh60Target: { x: number; y: number; unitId: string } | null = null
+  private uh60Target: { x: number; y: number; destX: number; destY: number; unitId: string } | null = null
   private restrictions: GameState['restrictions'] = {}
   private phases: ScenarioPhase[] = []
   private activePhaseIndex: number = 0
@@ -797,8 +797,8 @@ export class GameEngine {
           })
           const targetUnit = this.uh60Target ? this.units.get(this.uh60Target.unitId) as Soldier : null
           if (this.uh60Target && targetUnit) {
-            const destX = (this.uh60Target as any).destX ?? this.uh60Target.x
-            const destY = (this.uh60Target as any).destY ?? this.uh60Target.y
+            const destX = this.uh60Target.destX
+            const destY = this.uh60Target.destY
             targetUnit.setPosition({ x: destX, y: destY })
             
             if (targetUnit.isIncapacitated()) {
@@ -3159,7 +3159,7 @@ export class GameEngine {
     this.t129Cooldown = (data.t129Cooldown as number) || 0
     this.uh60State = (data.uh60State as 'idle' | 'flying' | 'loading') || 'idle'
     this.uh60Timer = (data.uh60Timer as number) || 0
-    this.uh60Target = data.uh60Target as { x: number; y: number; unitId: string } | null
+    this.uh60Target = data.uh60Target as { x: number; y: number; destX: number; destY: number; unitId: string } | null
 
     this.radioLog = (data.radioLog as RadioMessage[]) || []
     this.pendingEngagement = data.pendingEngagement as PendingEngagement | null
