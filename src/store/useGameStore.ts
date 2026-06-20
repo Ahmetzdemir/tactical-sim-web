@@ -192,6 +192,15 @@ export const useGameStore = create<GameStore>((set, get) => ({
           const { engine } = get();
           if (engine) {
             engine.loadFromSave(data.gameState);
+
+            // Explicitly force ready states from server data (safeguard against deserialization edge cases)
+            if (data.gameState.hostReady !== undefined) {
+              (engine as any).hostReady = data.gameState.hostReady;
+            }
+            if (data.gameState.guestReady !== undefined) {
+              (engine as any).guestReady = data.gameState.guestReady;
+            }
+
             const engineState = engine.getState();
             
             let nextPhase = get().appPhase;
