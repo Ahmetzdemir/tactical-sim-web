@@ -6,36 +6,49 @@ export class GameTime {
   day: number = 1
   hour: number = 6
   minute: number = 0
+  turn: number = 1
 
-  constructor(day = 1, hour = 6, minute = 0) {
-    this.day = day
-    this.hour = hour
-    this.minute = minute
+  constructor(dayOrTurn = 1, hour?: number, minute?: number) {
+    if (hour !== undefined && minute !== undefined) {
+      this.day = dayOrTurn
+      this.hour = hour
+      this.minute = minute
+      this.turn = 1
+    } else {
+      this.turn = dayOrTurn
+      this.updateDHM()
+    }
   }
 
-  static formatTime(totalMinutes: number): string {
-    const h = Math.floor(totalMinutes / 60) % 24
-    const m = totalMinutes % 60
-    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`
+  private updateDHM(): void {
+    const totalMinutes = (this.turn - 1) + 6 * 60
+    this.day = Math.floor(totalMinutes / 1440) + 1
+    this.hour = Math.floor((totalMinutes % 1440) / 60)
+    this.minute = totalMinutes % 60
   }
 
-  advance(minutes: number): void {
-    this.minute += minutes
-    this.hour += Math.floor(this.minute / 60)
-    this.minute = this.minute % 60
-    this.day += Math.floor(this.hour / 24)
-    this.hour = this.hour % 24
+  static formatTime(totalTurns: number): string {
+    return `Tur ${totalTurns}`
+  }
+
+  advance(turns: number): void {
+    this.turn += turns
+    this.updateDHM()
   }
 
   toString(): string {
-    return `Gün ${this.day.toString().padStart(2, '0')} | ${this.hour.toString().padStart(2, '0')}:${this.minute.toString().padStart(2, '0')}`
+    return `Tur ${this.turn}`
   }
 
   toTotalMinutes(): number {
-    return (this.day - 1) * 1440 + this.hour * 60 + this.minute
+    return this.turn
   }
 
   clone(): GameTime {
-    return new GameTime(this.day, this.hour, this.minute)
+    const gt = new GameTime(this.turn)
+    gt.day = this.day
+    gt.hour = this.hour
+    gt.minute = this.minute
+    return gt
   }
 }

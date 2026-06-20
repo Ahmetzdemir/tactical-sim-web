@@ -8,10 +8,30 @@ import { EngagementModal } from './EngagementModal'
 import { VictoryScreen } from './VictoryScreen'
 import { BriefingModal } from './BriefingModal'
 import { useState, useEffect } from 'react'
+import { audioManager } from '../services/AudioManager'
 
 export function GameLayout() {
   const { state } = useGameStore()
   const [showBriefing, setShowBriefing] = useState(false)
+
+  // Manage ambient sound loop lifecycle
+  useEffect(() => {
+    audioManager.stopWarAmbience()
+    if (state) {
+      audioManager.startWindAmbience(state.weather.getWeatherType())
+    }
+    return () => {
+      audioManager.stopWindAmbience()
+    }
+  }, [])
+
+  // Sync ambient sound loop with weather changes (e.g. on loading save game or turn progress)
+  const weatherTypeStr = state?.weather ? state.weather.getWeatherType() : undefined
+  useEffect(() => {
+    if (state && weatherTypeStr) {
+      audioManager.updateWeatherAmbience(weatherTypeStr)
+    }
+  }, [weatherTypeStr])
 
   // Show briefing on initial load for a scenario
   useEffect(() => {

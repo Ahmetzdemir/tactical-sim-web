@@ -103,7 +103,7 @@ export function TopBar() {
           <span className="text-mil-yellow font-bold">
             🎯 {state.sandboxSettings?.mode === 'RAAS'
               ? `${state.raasActivePointIndex === 0 ? 'Hedef A' : state.raasActivePointIndex === 1 ? 'Hedef B' : 'Hedef C'} (${state.capturePoint.x}, ${state.capturePoint.y}) — Kontrol: ${state.capturePointTurns?.host || 0}/3 Tur`
-              : `${state.defenseTimerCurrent}/${state.defenseTimerMax} dk`
+              : `${state.defenseTimerCurrent}/${state.defenseTimerMax} tur`
             }
           </span>
         </div>

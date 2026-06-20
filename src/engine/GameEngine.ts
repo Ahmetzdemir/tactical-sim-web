@@ -73,6 +73,8 @@ export interface GameState {
   guestBudget: number
   hostReady: boolean
   guestReady: boolean
+  hostDraftedRoles: SoldierRole[]
+  guestDraftedRoles: SoldierRole[]
   capturePointTurns: { host: number; guest: number }
   attackRoutes: Map<string, AttackRoute>
   moveRoutes: Map<string, MoveRoute>
@@ -81,6 +83,11 @@ export interface GameState {
   structureHealth: Map<string, number>
   activeConstructions: Map<string, { structureType: TerrainType; progress: number; targetProgress: number; builderId: string }>
   airdrops: { x: number; y: number; amount: number }[]
+  commandAirdropCooldown: number
+  commandReinforceCooldown: number
+  hospitalHealCooldown: number
+  supplyAmmoCooldown: number
+  sandbagRepairCooldown: number
 }
 
 export type GameStateListener = (state: GameState) => void
@@ -110,6 +117,11 @@ export class GameEngine {
   private airstrikeCooldown: number = 0
   private supplyCooldown: number = 0
   private t129Cooldown: number = 0
+  private commandAirdropCooldown: number = 0
+  private commandReinforceCooldown: number = 0
+  private hospitalHealCooldown: number = 0
+  private supplyAmmoCooldown: number = 0
+  private sandbagRepairCooldown: number = 0
   private uh60State: 'idle' | 'flying' | 'loading' = 'idle'
   private uh60Timer: number = 0
   private uh60Target: { x: number; y: number; destX: number; destY: number; unitId: string } | null = null
@@ -135,6 +147,8 @@ export class GameEngine {
   private guestBudget: number = 1000
   private hostReady: boolean = false
   private guestReady: boolean = false
+  private hostDraftedRoles: SoldierRole[] = []
+  private guestDraftedRoles: SoldierRole[] = []
   private capturePointTurns = { host: 0, guest: 0 }
 
   private listeners: GameStateListener[] = []
@@ -201,6 +215,8 @@ export class GameEngine {
       guestBudget: this.guestBudget,
       hostReady: this.hostReady,
       guestReady: this.guestReady,
+      hostDraftedRoles: [...this.hostDraftedRoles],
+      guestDraftedRoles: [...this.guestDraftedRoles],
       capturePointTurns: { ...this.capturePointTurns },
       signalStrength: this.radio.getSignalStrength(),
       attackRoutes: new Map(this.attackRoutes),
@@ -210,6 +226,11 @@ export class GameEngine {
       structureHealth: new Map(this.structureHealth),
       activeConstructions: new Map(this.activeConstructions),
       airdrops: [...this.airdrops],
+      commandAirdropCooldown: this.commandAirdropCooldown,
+      commandReinforceCooldown: this.commandReinforceCooldown,
+      hospitalHealCooldown: this.hospitalHealCooldown,
+      supplyAmmoCooldown: this.supplyAmmoCooldown,
+      sandbagRepairCooldown: this.sandbagRepairCooldown,
     }
   }
 
@@ -231,7 +252,7 @@ export class GameEngine {
     this.enemies = setup.enemies
     this.resources = setup.resources
     this.time = new GameTime(setup.startDay, setup.startHour, setup.startMinute)
-    this.map = new MapGrid()
+    this.map = new MapGrid(setup.mapSize || 15, setup.mapSize || 15)
     if (setup.customTerrainSetter) {
       setup.customTerrainSetter(this.map)
     }
@@ -393,6 +414,8 @@ export class GameEngine {
     this.guestBudget = 1000
     this.hostReady = false
     this.guestReady = false
+    this.hostDraftedRoles = []
+    this.guestDraftedRoles = []
     this.capturePoint = { x: 7, y: 7 }
     this.hasCapturePoint = true
     this.capturePointTurns = { host: 0, guest: 0 }
@@ -409,11 +432,16 @@ export class GameEngine {
     this.notify()
   }
 
-  buyUnit(playerId: string, _role: SoldierRole, cost: number): boolean {
+  buyUnit(playerId: string, role: SoldierRole, cost: number): boolean {
     const budget = playerId === 'host' ? this.hostBudget : this.guestBudget
     if (budget < cost) return false
-    if (playerId === 'host') this.hostBudget -= cost
-    else this.guestBudget -= cost
+    if (playerId === 'host') {
+      this.hostBudget -= cost
+      this.hostDraftedRoles.push(role)
+    } else {
+      this.guestBudget -= cost
+      this.guestDraftedRoles.push(role)
+    }
     this.notify()
     return true
   }
@@ -732,6 +760,11 @@ export class GameEngine {
       if (this.airstrikeCooldown > 0) this.airstrikeCooldown--
       if (this.supplyCooldown > 0) this.supplyCooldown--
       if (this.t129Cooldown > 0) this.t129Cooldown--
+      if (this.commandAirdropCooldown > 0) this.commandAirdropCooldown--
+      if (this.commandReinforceCooldown > 0) this.commandReinforceCooldown--
+      if (this.hospitalHealCooldown > 0) this.hospitalHealCooldown--
+      if (this.supplyAmmoCooldown > 0) this.supplyAmmoCooldown--
+      if (this.sandbagRepairCooldown > 0) this.sandbagRepairCooldown--
 
       if (this.combatActiveTimer > 0) {
         this.combatActiveTimer--
@@ -740,7 +773,7 @@ export class GameEngine {
         }
       }
 
-      // Process UH-60 MEDEVAC logic
+      // Process UH-60 transport logic
       if (this.uh60State === 'flying' && this.uh60Timer > 0) {
         audioManager.playHelicopter(0, 0); // Simplified: Center, close for now
         this.uh60Timer--
@@ -751,7 +784,7 @@ export class GameEngine {
           this.addRadioMessage({
             id: crypto.randomUUID(),
             fromUnitId: '🚁 UH-60',
-            message: `Koordinata ulaşıldı. Yaralı tahliyesi başlıyor, sahadayız! (Risk: 2 dk)`,
+            message: `Koordinata ulaşıldı. UH-60 nakil işlemi başlıyor, sahadayız! (Süre: 2 tur)`,
             sentTick: this.time.toTotalMinutes(),
             category: ReportCategory.MISSION_SUPPORT,
             corrupted: false, type: ReportType.REGULAR,
@@ -760,11 +793,7 @@ export class GameEngine {
       } else if (this.uh60State === 'loading' && this.uh60Timer > 0) {
         this.uh60Timer--
         
-        let riskProbability = 0.05
-        if (this.uh60Target) {
-          const sig = this.getSignalStrengthAt({ x: this.uh60Target.x, y: this.uh60Target.y })
-          riskProbability = Math.max(0.05, Math.min(0.80, 1 - sig))
-        }
+        let riskProbability = 0.0
 
         if (Math.random() < riskProbability) {
           // Helikopter düşürüldü
@@ -781,7 +810,7 @@ export class GameEngine {
             if (u.isAlive()) u.adjustMorale(-30)
           }
           if (this.uh60Target) {
-            this.units.delete(this.uh60Target.unitId) // Yaralı birim öldü/kayboldu
+            this.units.delete(this.uh60Target.unitId) // Taşınan birim öldü/kayboldu
           }
           this.uh60Target = null
         } else if (this.uh60Timer <= 0) {
@@ -790,7 +819,7 @@ export class GameEngine {
           this.addRadioMessage({
             id: crypto.randomUUID(),
             fromUnitId: '🚁 UH-60',
-            message: `Paket güvende! Üsse dönüyoruz. Tüm birliklere iyi şanslar! (+15 Moral)`,
+            message: `Personel güvende! Bölgeden uzaklaşıyoruz. Tüm birliklere iyi şanslar! (+15 Moral)`,
             sentTick: this.time.toTotalMinutes(),
             category: ReportCategory.SUCCESS,
             corrupted: false, type: ReportType.REGULAR,
@@ -806,7 +835,7 @@ export class GameEngine {
               this.addRadioMessage({
                 id: crypto.randomUUID(),
                 fromUnitId: '🚁 UH-60',
-                message: `[HASTA İNTİKALİ] Yaralı ${targetUnit.getName()} tahliye edilerek (${destX}, ${destY}) konumuna bırakıldı ve tedavi edilerek ayağa kaldırıldı! (+15 Moral)`,
+                message: `[UH-60 YARALI SEVKİ] Yaralı ${targetUnit.getName()} tahliye edilerek (${destX}, ${destY}) konumuna bırakıldı ve tedavi edilerek ayağa kaldırıldı! (+15 Moral)`,
                 sentTick: this.time.toTotalMinutes(),
                 category: ReportCategory.SUCCESS,
                 corrupted: false, type: ReportType.REGULAR,
@@ -845,6 +874,7 @@ export class GameEngine {
         this.weather.rollForWeatherChange()
       }
       if (this.weather.rollForWeatherChange()) {
+        audioManager.updateWeatherAmbience(this.weather.getWeatherType())
         this.addRadioMessage({
           id: crypto.randomUUID(),
           fromUnitId: '☁️ HAVA',
@@ -973,7 +1003,9 @@ export class GameEngine {
         }
 
         constr.progress++
+        audioManager.playConstructionProgress()
         if (constr.progress >= constr.targetProgress) {
+          audioManager.playAmmoSupply() // Play mechanical lock complete sound
           this.activeConstructions.delete(coord)
           this.map.setTerrain(cx, cy, constr.structureType)
           this.structureHealth.set(coord, 100)
@@ -1213,7 +1245,7 @@ export class GameEngine {
         let closestPlayerUnit: Soldier | null = null
         let minDist = 999
         for (const playerUnit of this.units.values()) {
-          if (!playerUnit.isAlive()) continue
+          if (!playerUnit.isAlive() || playerUnit.isIncapacitated()) continue
           const dx = enemy.getPosition().x - playerUnit.getPosition().x
           const dy = enemy.getPosition().y - playerUnit.getPosition().y
           const dist = Math.sqrt(dx * dx + dy * dy)
@@ -1534,6 +1566,7 @@ export class GameEngine {
                 const structureName = terrainAtTarget === TerrainType.FOB_COMMAND ? 'Komuta Merkezi' : terrainAtTarget === TerrainType.FOB_HOSPITAL ? 'Sahra Hastanesi' : 'Mühimmat Deposu'
 
                 audioManager.startGunfireAmbient()
+                this.combatActiveTimer = 10
                 if (enemy.getType() === EnemyType.ARMORED) {
                   audioManager.playTankFire()
                 }
@@ -1619,7 +1652,7 @@ export class GameEngine {
 
         const unitsInRange: { unit: Soldier; dist: number }[] = []
         for (const playerUnit of this.units.values()) {
-          if (!playerUnit.isAlive()) continue
+          if (!playerUnit.isAlive() || playerUnit.isIncapacitated()) continue
           const dx = enemy.getPosition().x - playerUnit.getPosition().x
           const dy = enemy.getPosition().y - playerUnit.getPosition().y
           const dist = Math.sqrt(dx * dx + dy * dy)
@@ -1661,6 +1694,7 @@ export class GameEngine {
             else if (this.sandboxSettings?.difficulty === 'HARD') dmgMultiplier = 1.3
 
             const res = MultiplayerLogic.processEnemyImpact(enemy, bestTarget, this.map, dmgMultiplier)
+            this.combatActiveTimer = 10
 
             // Special Combat Effects (Armored Splash and MG Suppressive Area Denial) if difficulty is STANDARD or HARD
             const diffLevel = this.sandboxSettings?.difficulty || 'STANDARD'
@@ -1671,7 +1705,7 @@ export class GameEngine {
                 // Armored tank splash damage: 8 HP damage to nearby player units within 1.5 tile radius
                 let splashCount = 0
                 for (const [uid, playerUnit] of this.units) {
-                  if (uid === bestTarget.getId() || !playerUnit.isAlive()) continue
+                  if (uid === bestTarget.getId() || !playerUnit.isAlive() || playerUnit.isIncapacitated()) continue
                   const px = playerUnit.getPosition().x - targetPos.x
                   const py = playerUnit.getPosition().y - targetPos.y
                   const pdist = Math.sqrt(px * px + py * py)
@@ -1688,7 +1722,7 @@ export class GameEngine {
                 // MG suppressive area denial: suppress player units in 1.5 tile radius, reducing morale by 8 and setting them under fire
                 let suppressedCount = 0
                 for (const [uid, playerUnit] of this.units) {
-                  if (uid === bestTarget.getId() || !playerUnit.isAlive()) continue
+                  if (uid === bestTarget.getId() || !playerUnit.isAlive() || playerUnit.isIncapacitated()) continue
                   const px = playerUnit.getPosition().x - targetPos.x
                   const py = playerUnit.getPosition().y - targetPos.y
                   const pdist = Math.sqrt(px * px + py * py)
@@ -1722,7 +1756,7 @@ export class GameEngine {
 
       // Detect enemies → request fire permission
       for (const [playerId, playerUnit] of this.units) {
-        if (!playerUnit.isAlive()) continue
+        if (!playerUnit.isAlive() || playerUnit.isIncapacitated()) continue
         const soldier = playerUnit as Soldier
         if (soldier.getFirePermission() !== FirePermission.UNDEFINED) continue
 
@@ -2004,7 +2038,7 @@ export class GameEngine {
             this.addRadioMessage({
               id: crypto.randomUUID(),
               fromUnitId: '🏆 KARARGAH',
-              message: 'SAVUNMA BAŞARILI! 120 dakika boyunca aslanlar gibi direndiniz. Takviye yolda!',
+              message: 'SAVUNMA BAŞARILI! 120 tur boyunca aslanlar gibi direndiniz. Takviye yolda!',
               sentTick: currentSimTime,
               category: ReportCategory.SUCCESS,
               corrupted: false,
@@ -2064,6 +2098,7 @@ export class GameEngine {
   dispatchCommand(unitId: string, cmd: string): void {
     const unit = this.units.get(unitId)
     if (!unit) return
+    if (!unit.isAlive() || (unit as Soldier).isIncapacitated()) return
 
     const pos = unit.getPosition()
     const sig = this.getSignalStrengthAt(pos)
@@ -2109,6 +2144,7 @@ export class GameEngine {
       const enemy = this.enemies.get(tid)
       if (enemy?.isAlive()) {
         const res = MultiplayerLogic.processCombatImpact(soldier, enemy, this.map)
+        this.combatActiveTimer = 10
         this.radio.queueReport(unitId, 'Anlaşıldı Karargah, imha ateşine başlıyoruz! ' + res.reportMessage, this.time.toTotalMinutes(), Math.max(0.1, 1 - sig), -1, ReportType.REGULAR, '', res.category)
         if (res.enemyTauntMessage) {
           this.radio.queueReport('⚠️ BİLİNMEYEN', res.enemyTauntMessage, this.time.toTotalMinutes() + 1, 0.6, -1, ReportType.REGULAR, '', ReportCategory.DANGER)
@@ -2204,6 +2240,7 @@ export class GameEngine {
       } else {
         // Deduct materials
         soldier.setConstructionMaterials(soldier.getConstructionMaterials() - cost)
+        audioManager.playConstruction()
         // Add active construction
         this.activeConstructions.set(`${unitPos.x},${unitPos.y}`, {
           structureType,
@@ -2317,26 +2354,7 @@ export class GameEngine {
       }
     } else if (cmd === 'topcu' || cmd.startsWith('topcu ')) {
       this.artilleryStrike(cmd, unitId, sig)
-    } else if (cmd.startsWith('t129 ')) {
-      const parts = cmd.split(' ')
-      const tx = parseInt(parts[1])
-      const ty = parseInt(parts[2])
-      let hits = 0
-      for (const [, enemy] of this.enemies) {
-        if (!enemy.isAlive()) continue
-        if (enemy.getPosition().x === tx && enemy.getPosition().y === ty) {
-          const dmg = enemy.getType() === EnemyType.ARMORED ? 50 : 10
-          enemy.takeDamage(dmg)
-          hits++
-        }
-      }
-      audioManager.playHelicopter(0.1, 0)
-      setTimeout(() => audioManager.stopHelicopter(), 3000)
-      if (hits > 0) {
-        this.radio.queueReport('🚁 T-129 ATAK', `Koordinat (${tx},${ty}) delik deşik edildi! ${hits} çakal cehennemi boyladı!`, this.time.toTotalMinutes(), 0.1, -1, ReportType.REGULAR, '', ReportCategory.SUCCESS)
-      } else {
-        this.radio.queueReport('🚁 T-129 ATAK', `Mıntıka temiz, helikopterimiz boşuna mermi yakıyor. Geri dönüyoruz.`, this.time.toTotalMinutes(), 0.1, -1, ReportType.REGULAR, '', ReportCategory.MISSION_SUPPORT)
-      }
+
     } else {
       unit.receiveCommand(cmd)
     }
@@ -2372,7 +2390,7 @@ export class GameEngine {
     this.addRadioMessage({
       id: crypto.randomUUID(),
       fromUnitId: '📡 TELSİZ',
-      message: `→ ${unitId}: "${command}" | Beklenen teslimat: +${delay} dk`,
+      message: `→ ${unitId}: "${command}" | Beklenen teslimat: +${delay} tur`,
       sentTick: this.time.toTotalMinutes(),
       category: ReportCategory.MISSION_SUPPORT,
       corrupted: false,
@@ -2405,7 +2423,7 @@ export class GameEngine {
       this.addRadioMessage({
         id: crypto.randomUUID(),
         fromUnitId: '📦 LOJİSTİK',
-        message: `İkmal uçakları şu an başka bir görevde. Bekleme süresi: ${this.supplyCooldown} dk.`,
+        message: `İkmal uçakları şu an başka bir görevde. Bekleme süresi: ${this.supplyCooldown} tur.`,
         sentTick: this.time.toTotalMinutes(),
         category: ReportCategory.DANGER,
         corrupted: false,
@@ -2618,7 +2636,7 @@ export class GameEngine {
       this.addRadioMessage({
         id: crypto.randomUUID(),
         fromUnitId: '🎯 TOPÇU',
-        message: `Topçu bataryası yeniden yükleniyor. Bekleme süresi: ${this.artilleryCooldown} dk.`,
+        message: `Topçu bataryası yeniden yükleniyor. Bekleme süresi: ${this.artilleryCooldown} tur.`,
         sentTick: this.time.toTotalMinutes(),
         category: ReportCategory.DANGER,
         corrupted: false, type: ReportType.REGULAR,
@@ -2660,7 +2678,7 @@ export class GameEngine {
       this.addRadioMessage({
         id: crypto.randomUUID(),
         fromUnitId: '✈️ HAVA',
-        message: `Hava filosu kalkış için hazırlanıyor. Bekleme süresi: ${this.airstrikeCooldown} dk.`,
+        message: `Hava filosu kalkış için hazırlanıyor. Bekleme süresi: ${this.airstrikeCooldown} tur.`,
         sentTick: this.time.toTotalMinutes(),
         category: ReportCategory.DANGER,
         corrupted: false, type: ReportType.REGULAR,
@@ -2710,12 +2728,25 @@ export class GameEngine {
     return true
   }
 
-  callT129(unitId: string, x: number, y: number): boolean {
+  callT129(x: number, y: number): boolean {
+    if (this.restrictions?.t129Disabled) {
+      this.addRadioMessage({
+        id: crypto.randomUUID(),
+        fromUnitId: '🚁 ATAK',
+        message: `HATA: T-129 ATAK filosu bölgeye uçuş gerçekleştiremiyor.`,
+        sentTick: this.time.toTotalMinutes(),
+        category: ReportCategory.DANGER,
+        corrupted: false, type: ReportType.REGULAR,
+      })
+      this.notify()
+      return false
+    }
+
     if (this.t129Cooldown > 0) {
       this.addRadioMessage({
         id: crypto.randomUUID(),
         fromUnitId: '🚁 KARARGAH',
-        message: `T-129 ATAK filosu mühimmat ikmalinde. Bekleme süresi: ${this.t129Cooldown} dk.`,
+        message: `T-129 ATAK filosu mühimmat ikmalinde. Bekleme süresi: ${this.t129Cooldown} tur.`,
         sentTick: this.time.toTotalMinutes(),
         category: ReportCategory.DANGER,
         corrupted: false, type: ReportType.REGULAR,
@@ -2738,8 +2769,43 @@ export class GameEngine {
     }
 
     this.t129Cooldown = 18
-    const delay = this.calculateDynamicDelay(unitId)
-    this.radio.sendCommand(unitId, `t129 ${x} ${y}`, delay.total)
+    let hits = 0
+    for (const [, enemy] of this.enemies) {
+      if (!enemy.isAlive()) continue
+      if (enemy.getPosition().x === x && enemy.getPosition().y === y) {
+        const dmg = enemy.getType() === EnemyType.ARMORED ? 50 : 10
+        enemy.takeDamage(dmg)
+        hits++
+      }
+    }
+    audioManager.playHelicopter(0.1, 0)
+    setTimeout(() => audioManager.stopHelicopter(), 3000)
+
+    this.addRadioMessage({
+      id: crypto.randomUUID(),
+      fromUnitId: '🚀 T-129 ATAK',
+      message: `ATAK DESTEĞİ BAŞLATILDI: Hedef bölge (${x}, ${y}) ateş altına alınıyor.`,
+      sentTick: this.time.toTotalMinutes(),
+      category: ReportCategory.MISSION_SUPPORT,
+      corrupted: false,
+      type: ReportType.REGULAR,
+    })
+
+    const msg = hits > 0
+      ? `T-129 ATAK: Koordinat (${x},${y}) delik deşik edildi! ${hits} düşman etkisiz hale getirildi.`
+      : `T-129 ATAK: Hedef bölgeye (${x},${y}) ulaşıldı, aktif düşman unsuru yok.`
+
+    this.addRadioMessage({
+      id: crypto.randomUUID(),
+      fromUnitId: '🚁 T-129 ATAK',
+      message: msg,
+      sentTick: this.time.toTotalMinutes(),
+      category: hits > 0 ? ReportCategory.SUCCESS : ReportCategory.MISSION_SUPPORT,
+      corrupted: false,
+      type: ReportType.REGULAR,
+    })
+
+    this.checkEndGame()
     this.notify()
     return true
   }
@@ -2762,6 +2828,33 @@ export class GameEngine {
     const targetUnit = this.units.get(targetUnitId) as Soldier
 
     if (!caller || !targetUnit) return false
+
+    // Check if target destination is occupied
+    let isOccupied = false
+    for (const u of this.units.values()) {
+      if (u.isAlive() && u.getPosition().x === destX && u.getPosition().y === destY) {
+        isOccupied = true
+        break
+      }
+    }
+    for (const e of this.enemies.values()) {
+      if (e.isAlive() && e.getPosition().x === destX && e.getPosition().y === destY) {
+        isOccupied = true
+        break
+      }
+    }
+    if (isOccupied) {
+      this.addRadioMessage({
+        id: crypto.randomUUID(),
+        fromUnitId: '🚁 KARARGAH',
+        message: `HATA: Hedef konum (${destX}, ${destY}) dolu! UH-60 iniş yapamaz.`,
+        sentTick: this.time.toTotalMinutes(),
+        category: ReportCategory.DANGER,
+        corrupted: false, type: ReportType.REGULAR,
+      })
+      this.notify()
+      return false
+    }
 
     // Unlink carried/carrying relationships for targetUnit
     const targetCarriedId = targetUnit.getCarryingUnitId()
@@ -2788,7 +2881,7 @@ export class GameEngine {
       unitId: targetUnitId 
     }
 
-    this.radio.queueReport(callerId, `KOÇYİĞİDİ ALMAYA GELİYORUZ: UH-60 havalandı. Dayanın aslanım, ${delay.total} dakikaya oradayız!`, this.time.toTotalMinutes(), 0.1, -1, ReportType.REGULAR, '', ReportCategory.MISSION_SUPPORT)
+    this.radio.queueReport(callerId, `UH-60 HAREKET ETTİ: Personel nakli için helikopter havalandı. Hazırlanın, ${delay.total} tura oradayız!`, this.time.toTotalMinutes(), 0.1, -1, ReportType.REGULAR, '', ReportCategory.MISSION_SUPPORT)
     this.notify()
     return true
   }
@@ -2872,7 +2965,7 @@ export class GameEngine {
     if (this.victoryAchieved || this.defeatAchieved) return
 
     // 1. Defeat Condition: All friendly units are dead
-    if (this.units.size > 0 && [...this.units.values()].every(u => !u.isAlive())) {
+    if (this.units.size > 0 && [...this.units.values()].every(u => !u.isAlive() || (u as Soldier).isIncapacitated())) {
       this.defeatAchieved = true
       this.addRadioMessage({
         id: crypto.randomUUID(),
@@ -2920,7 +3013,7 @@ export class GameEngine {
   // ── Serialization ─────────────────────────────────────────────
   serialize(): Record<string, unknown> {
     return {
-      time: { day: this.time.day, hour: this.time.hour, minute: this.time.minute },
+      time: { turn: this.time.turn },
       units: [...this.units.entries()].map(([id, u]) => [id, (u as Soldier).serialize()]),
       enemies: [...this.enemies.entries()].map(([id, e]) => [id, (e as EnemyUnit).serialize()]),
       mapGrid: this.map.serialize(),
@@ -2950,6 +3043,8 @@ export class GameEngine {
       guestBudget: this.guestBudget,
       hostReady: this.hostReady,
       guestReady: this.guestReady,
+      hostDraftedRoles: [...this.hostDraftedRoles],
+      guestDraftedRoles: [...this.guestDraftedRoles],
       capturePointTurns: this.capturePointTurns,
       attackRoutes: [...this.attackRoutes.entries()].map(([id, r]) => [id, { ...r }]),
       moveRoutes: [...this.moveRoutes.entries()].map(([id, r]) => [id, { ...r }]),
@@ -2960,6 +3055,11 @@ export class GameEngine {
       activeConstructions: [...this.activeConstructions.entries()],
       airdrops: this.airdrops,
       discoveredTiles: Array.from(this.discoveredTiles),
+      commandAirdropCooldown: this.commandAirdropCooldown,
+      commandReinforceCooldown: this.commandReinforceCooldown,
+      hospitalHealCooldown: this.hospitalHealCooldown,
+      supplyAmmoCooldown: this.supplyAmmoCooldown,
+      sandbagRepairCooldown: this.sandbagRepairCooldown,
     }
   }
     // ── Calculation ───────────────
@@ -3025,133 +3125,71 @@ export class GameEngine {
 
   private calculateDynamicDelay(unitId: string): DelayBreakdown {
     const breakdown = { base: 1, distance: 0, weather: 0, stress: 0, queue: 0, total: 1 }
-    breakdown.queue = this.radio.getPendingCount() * 2
 
     const unit = this.units.get(unitId)
     if (unit) {
       const pos = unit.getPosition()
       
-      let nearRadio = false
-      for (const r of this.deployedRadios) {
-        const dx = r.x - pos.x
-        const dy = r.y - pos.y
-        if (Math.sqrt(dx * dx + dy * dy) <= 4.0) {
-          nearRadio = true
-          break
-        }
-      }
-
       // Command Center check (range 6)
       let nearCommand = false
-      if (!nearRadio) {
-        for (let y = 0; y < this.map.height; y++) {
-          for (let x = 0; x < this.map.width; x++) {
-            if (this.map.getTerrain(x, y) === TerrainType.FOB_COMMAND) {
-              const dx = x - pos.x
-              const dy = y - pos.y
-              if (Math.sqrt(dx * dx + dy * dy) <= 6.0) {
-                nearCommand = true
-                break
-              }
+      for (let y = 0; y < this.map.height; y++) {
+        for (let x = 0; x < this.map.width; x++) {
+          if (this.map.getTerrain(x, y) === TerrainType.FOB_COMMAND) {
+            const dx = x - pos.x
+            const dy = y - pos.y
+            if (Math.sqrt(dx * dx + dy * dy) <= 6.0) {
+              nearCommand = true
+              break
             }
           }
-          if (nearCommand) break
         }
+        if (nearCommand) break
       }
 
       if (nearCommand) {
-        // Command Center eliminates delay completely
         breakdown.base = 0
-        breakdown.distance = 0
-        breakdown.weather = 0
-        breakdown.stress = 0
-        breakdown.queue = 0
         breakdown.total = 0
         return breakdown
       }
-
-      if (nearRadio) {
-        breakdown.distance = 0
-        breakdown.weather = 0
-        breakdown.stress = 0
-      } else {
-        const dist = pos.x + pos.y
-        breakdown.distance += Math.floor(dist * 0.5)
-
-        let mountainInBetween = false
-        for (let x = 0; x <= pos.x; x++) {
-          for (let y = 0; y <= pos.y; y++) {
-            if (this.map.getTerrain(x, y) === TerrainType.MOUNTAIN) { mountainInBetween = true; break; }
-          }
-          if (mountainInBetween) break;
-        }
-        if (mountainInBetween) breakdown.distance += 3
-
-        if (unit.isUnderFire()) breakdown.stress += 4
-      }
     }
 
-    const weatherName = this.weather.getWeatherName()
-    let isNearRadio = false
-    if (unit) {
-      const pos = unit.getPosition()
-      for (const r of this.deployedRadios) {
-        const dx = r.x - pos.x
-        const dy = r.y - pos.y
-        if (Math.sqrt(dx * dx + dy * dy) <= 4.0) {
-          isNearRadio = true
-          break
-        }
-      }
-
-      if (!isNearRadio) {
-        // Also check command center proximity for weather delay exemption
-        for (let y = 0; y < this.map.height; y++) {
-          for (let x = 0; x < this.map.width; x++) {
-            if (this.map.getTerrain(x, y) === TerrainType.FOB_COMMAND) {
-              const dx = x - pos.x
-              const dy = y - pos.y
-              if (Math.sqrt(dx * dx + dy * dy) <= 6.0) {
-                isNearRadio = true
-                break
-              }
-            }
-          }
-          if (isNearRadio) break
-        }
-      }
-    }
-
-    if (!isNearRadio) {
-      if (weatherName.includes('Yağmur') || weatherName.includes('Sis')) breakdown.weather += 2
-      else if (weatherName.includes('Fırtına')) breakdown.weather += 5
-    }
-
-    breakdown.total = breakdown.base + breakdown.distance + breakdown.weather + breakdown.stress + breakdown.queue
+    breakdown.total = breakdown.base
     return breakdown
   }
 
   loadFromSave(data: ReturnType<GameEngine['serialize']>): void {
-    const t = data.time as { day: number; hour: number; minute: number }
-    this.time = new GameTime(t.day, t.hour, t.minute)
+    const t = data.time as any
+    if (t && typeof t.turn === 'number') {
+      this.time = new GameTime(t.turn)
+    } else if (t && typeof t.day === 'number') {
+      this.time = new GameTime(t.day, t.hour, t.minute)
+    } else {
+      this.time = new GameTime(1)
+    }
 
     this.units = new Map(
-      (data.units as [string, Record<string, unknown>][]).map(([id, u]) => [id, Soldier.deserialize(u as Parameters<typeof Soldier.deserialize>[0])])
+      ((data.units || []) as [string, Record<string, unknown>][]).map(([id, u]) => [id, Soldier.deserialize(u as Parameters<typeof Soldier.deserialize>[0])])
     )
     this.enemies = new Map(
-      (data.enemies as [string, Record<string, unknown>][]).map(([id, e]) => [id, EnemyUnit.deserialize(e)])
+      ((data.enemies || []) as [string, Record<string, unknown>][]).map(([id, e]) => [id, EnemyUnit.deserialize(e)])
     )
-    this.map = MapGrid.deserialize(data.mapGrid as Parameters<typeof MapGrid.deserialize>[0])
-    this.resources = ResourceManager.deserialize(data.resources as Record<string, unknown>)
-    this.weather = WeatherSystem.deserialize(data.weather as Record<string, unknown>)
-    this.activeScenarioIndex = data.activeScenarioIndex as number
-    this.victoryAchieved = data.victoryAchieved as boolean
-    this.defeatAchieved = data.defeatAchieved as boolean || false
-    this.hasCapturePoint = data.hasCapturePoint as boolean
-    this.capturePoint = data.capturePoint as Position
-    this.defenseTimerMax = data.defenseTimerMax as number
-    this.defenseTimerCurrent = data.defenseTimerCurrent as number
-    this.capturePointFallen = data.capturePointFallen as boolean
+    if (data.mapGrid) {
+      this.map = MapGrid.deserialize(data.mapGrid as Parameters<typeof MapGrid.deserialize>[0])
+    }
+    if (data.resources) {
+      this.resources = ResourceManager.deserialize(data.resources as Record<string, unknown>)
+    }
+    if (data.weather) {
+      this.weather = WeatherSystem.deserialize(data.weather as Record<string, unknown>)
+    }
+    this.activeScenarioIndex = (data.activeScenarioIndex as number) || 1
+    this.victoryAchieved = (data.victoryAchieved as boolean) || false
+    this.defeatAchieved = (data.defeatAchieved as boolean) || false
+    this.hasCapturePoint = (data.hasCapturePoint as boolean) || false
+    this.capturePoint = (data.capturePoint as Position) || { x: 7, y: 7 }
+    this.defenseTimerMax = (data.defenseTimerMax as number) || 0
+    this.defenseTimerCurrent = (data.defenseTimerCurrent as number) || 0
+    this.capturePointFallen = (data.capturePointFallen as boolean) || false
     
     this.artilleryCooldown = (data.artilleryCooldown as number) || 0
     this.airstrikeCooldown = (data.airstrikeCooldown as number) || 0
@@ -3160,6 +3198,11 @@ export class GameEngine {
     this.uh60State = (data.uh60State as 'idle' | 'flying' | 'loading') || 'idle'
     this.uh60Timer = (data.uh60Timer as number) || 0
     this.uh60Target = data.uh60Target as { x: number; y: number; destX: number; destY: number; unitId: string } | null
+    this.commandAirdropCooldown = (data.commandAirdropCooldown as number) || 0
+    this.commandReinforceCooldown = (data.commandReinforceCooldown as number) || 0
+    this.hospitalHealCooldown = (data.hospitalHealCooldown as number) || 0
+    this.supplyAmmoCooldown = (data.supplyAmmoCooldown as number) || 0
+    this.sandbagRepairCooldown = (data.sandbagRepairCooldown as number) || 0
 
     this.radioLog = (data.radioLog as RadioMessage[]) || []
     this.pendingEngagement = data.pendingEngagement as PendingEngagement | null
@@ -3183,6 +3226,8 @@ export class GameEngine {
     this.guestBudget = (data.guestBudget as number) ?? 1000
     this.hostReady = (data.hostReady as boolean) || false
     this.guestReady = (data.guestReady as boolean) || false
+    this.hostDraftedRoles = (data.hostDraftedRoles as SoldierRole[]) || []
+    this.guestDraftedRoles = (data.guestDraftedRoles as SoldierRole[]) || []
     this.capturePointTurns = (data.capturePointTurns as { host: number; guest: number }) || { host: 0, guest: 0 }
     
     // Deserialize routes
@@ -3207,5 +3252,334 @@ export class GameEngine {
     this.checkMatchPhaseTransitions()
     
     this.notify()
+  }
+
+  executeCommandAirdrop(x: number, y: number): boolean {
+    if (this.commandAirdropCooldown > 0) {
+      this.addRadioMessage({
+        id: crypto.randomUUID(),
+        fromUnitId: '⛺ KARARGAH',
+        message: `HATA: Komuta merkezi lojistik ikmal hattı meşgul. Bekleme süresi: ${this.commandAirdropCooldown} tur.`,
+        sentTick: this.time.toTotalMinutes(),
+        category: ReportCategory.DANGER,
+        corrupted: false, type: ReportType.REGULAR,
+      })
+      this.notify()
+      return false
+    }
+
+    if (this.map.getTerrain(x, y) !== TerrainType.OPEN) {
+      this.addRadioMessage({
+        id: crypto.randomUUID(),
+        fromUnitId: '⛺ KARARGAH',
+        message: `HATA: İkmal sadece boş araziye (OPEN) indirilebilir!`,
+        sentTick: this.time.toTotalMinutes(),
+        category: ReportCategory.DANGER,
+        corrupted: false, type: ReportType.REGULAR,
+      })
+      this.notify()
+      return false
+    }
+
+    if (this.airdrops.some(d => d.x === x && d.y === y)) {
+      this.notify()
+      return false
+    }
+
+    this.commandAirdropCooldown = 10
+    this.airdrops.push({ x, y, amount: 3 })
+    this.addRadioMessage({
+      id: crypto.randomUUID(),
+      fromUnitId: '📦 LOJİSTİK',
+      message: `[HAVA İKMALİ DÜŞTÜ] Komuta merkezinden talep edilen inşaat malzemesi kolisi paraşütle (${x}, ${y}) konumuna bırakıldı.`,
+      sentTick: this.time.toTotalMinutes(),
+      category: ReportCategory.SUCCESS,
+      corrupted: false,
+      type: ReportType.REGULAR,
+    })
+    this.notify()
+    return true
+  }
+
+  executeCommandReinforce(x: number, y: number, role: SoldierRole): boolean {
+    if (this.commandReinforceCooldown > 0) {
+      this.addRadioMessage({
+        id: crypto.randomUUID(),
+        fromUnitId: '⛺ KARARGAH',
+        message: `HATA: Karargah sevkıyat hazırlıkları devam ediyor. Bekleme süresi: ${this.commandReinforceCooldown} tur.`,
+        sentTick: this.time.toTotalMinutes(),
+        category: ReportCategory.DANGER,
+        corrupted: false, type: ReportType.REGULAR,
+      })
+      this.notify()
+      return false
+    }
+
+    let targetX = -1
+    let targetY = -1
+    let found = false
+
+    for (let dy = -1; dy <= 1; dy++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        if (dx === 0 && dy === 0) continue
+        const sx = x + dx
+        const sy = y + dy
+        if (sx >= 0 && sx < this.map.width && sy >= 0 && sy < this.map.height) {
+          if (this.map.getTerrain(sx, sy) === TerrainType.OPEN) {
+            let occupied = false
+            for (const u of this.units.values()) {
+              if (u.getPosition().x === sx && u.getPosition().y === sy) {
+                occupied = true
+                break
+              }
+            }
+            if (!occupied) {
+              for (const e of this.enemies.values()) {
+                if (e.isAlive() && e.getPosition().x === sx && e.getPosition().y === sy) {
+                  occupied = true
+                  break
+                }
+              }
+            }
+            if (!occupied) {
+              targetX = sx
+              targetY = sy
+              found = true
+              break
+            }
+          }
+        }
+      }
+      if (found) break
+    }
+
+    if (!found) {
+      this.addRadioMessage({
+        id: crypto.randomUUID(),
+        fromUnitId: '⛺ KARARGAH',
+        message: `HATA: Karargah çevresinde (${x}, ${y}) takviye birim yerleştirecek boş alan bulunamadı!`,
+        sentTick: this.time.toTotalMinutes(),
+        category: ReportCategory.DANGER,
+        corrupted: false, type: ReportType.REGULAR,
+      })
+      this.notify()
+      return false
+    }
+
+    this.commandReinforceCooldown = 15
+    audioManager.playReinforce()
+    const id = `TIM-DESTEK-${Math.floor(Math.random() * 900 + 100)}`
+    
+    let hp = 100
+    let morale = 80
+    let ammo = 120
+    let rations = 5
+    let medkits = 2
+    let materials = 0
+
+    if (role === SoldierRole.RIFLEMAN) {
+      hp = 100; morale = 80; ammo = 120; rations = 5; medkits = 2;
+    } else if (role === SoldierRole.MEDIC) {
+      hp = 100; morale = 85; ammo = 80; rations = 5; medkits = 4;
+    } else if (role === SoldierRole.MG) {
+      hp = 100; morale = 85; ammo = 400; rations = 5; medkits = 1;
+    } else if (role === SoldierRole.SNIPER) {
+      hp = 100; morale = 100; ammo = 60; rations = 3; medkits = 1;
+    } else if (role === SoldierRole.ENGINEER) {
+      hp = 120; morale = 85; ammo = 200; rations = 5; medkits = 2; materials = 1;
+    } else if (role === SoldierRole.ARMORED) {
+      hp = 200; morale = 90; ammo = 300; rations = 10; medkits = 0;
+    }
+
+    const s = makeUnit(id, `Destek ${roleToString(role)}`, role, hp, morale, ammo, rations, medkits, targetX, targetY)
+    if (materials > 0 && typeof (s as any).addConstructionMaterials === 'function') {
+      (s as any).addConstructionMaterials(materials)
+    }
+    s.resetAP()
+    this.units.set(id, s)
+    
+    this.addRadioMessage({
+      id: crypto.randomUUID(),
+      fromUnitId: '⛺ KARARGAH',
+      message: `[DESTEK SEVKİYATI] Karargah talebi üzerine yeni bir ${roleToString(role)} birimi (${targetX}, ${targetY}) konumuna sevk edildi!`,
+      sentTick: this.time.toTotalMinutes(),
+      category: ReportCategory.SUCCESS,
+      corrupted: false,
+      type: ReportType.REGULAR,
+    })
+    
+    this.updateVision()
+    this.notify()
+    return true
+  }
+
+  executeHospitalHeal(x: number, y: number): boolean {
+    if (this.hospitalHealCooldown > 0) {
+      this.addRadioMessage({
+        id: crypto.randomUUID(),
+        fromUnitId: '🏥 HASTANE',
+        message: `HATA: Sahra hastanesi tıbbi araç gereç ikmali bekliyor. Bekleme süresi: ${this.hospitalHealCooldown} tur.`,
+        sentTick: this.time.toTotalMinutes(),
+        category: ReportCategory.DANGER,
+        corrupted: false, type: ReportType.REGULAR,
+      })
+      this.notify()
+      return false
+    }
+
+    let healedCount = 0
+    for (const [, unit] of this.units) {
+      if (unit.isAlive()) {
+        const uPos = unit.getPosition()
+        if (Math.abs(uPos.x - x) <= 1 && Math.abs(uPos.y - y) <= 1) {
+          const soldier = unit as Soldier
+          if (soldier.getHp() < 100) {
+            soldier.restoreHealth(25)
+            if (!soldier.isIncapacitated()) {
+              soldier.setHp(Math.min(100, soldier.getHp() + 25))
+            }
+            healedCount++
+          }
+        }
+      }
+    }
+
+    if (healedCount === 0) {
+      this.addRadioMessage({
+        id: crypto.randomUUID(),
+        fromUnitId: '🏥 HASTANE',
+        message: `HATA: Hastane çevresinde tedavi edilecek yaralı personel bulunamadı!`,
+        sentTick: this.time.toTotalMinutes(),
+        category: ReportCategory.DANGER,
+        corrupted: false, type: ReportType.REGULAR,
+      })
+      this.notify()
+      return false
+    }
+
+    this.hospitalHealCooldown = 8
+    audioManager.playHeal()
+    this.addRadioMessage({
+      id: crypto.randomUUID(),
+      fromUnitId: '🏥 HASTANE',
+      message: `[ACİL MÜDAHALE] Sahra hastanesi acil tıbbi protokolü başlattı, çevredeki ${healedCount} yaralı asker tedavi edildi! (+25 HP)`,
+      sentTick: this.time.toTotalMinutes(),
+      category: ReportCategory.SUCCESS,
+      corrupted: false,
+      type: ReportType.REGULAR,
+    })
+    this.notify()
+    return true
+  }
+
+  executeSupplyAmmo(x: number, y: number): boolean {
+    if (this.supplyAmmoCooldown > 0) {
+      this.addRadioMessage({
+        id: crypto.randomUUID(),
+        fromUnitId: '📦 DEPO',
+        message: `HATA: Mühimmat deposu cephane tasnifinde. Bekleme süresi: ${this.supplyAmmoCooldown} tur.`,
+        sentTick: this.time.toTotalMinutes(),
+        category: ReportCategory.DANGER,
+        corrupted: false, type: ReportType.REGULAR,
+      })
+      this.notify()
+      return false
+    }
+
+    let suppliedCount = 0
+    for (const [, unit] of this.units) {
+      if (unit.isAlive()) {
+        const uPos = unit.getPosition()
+        if (Math.abs(uPos.x - x) <= 1 && Math.abs(uPos.y - y) <= 1) {
+          const soldier = unit as Soldier
+          const maxAmmo = soldier.getRole() === SoldierRole.MG ? 400 : soldier.getRole() === SoldierRole.ARMORED ? 300 : 120
+          if (soldier.getAmmo() < maxAmmo) {
+            soldier.resupply(maxAmmo - soldier.getAmmo(), 0, 0)
+            suppliedCount++
+          }
+        }
+      }
+    }
+
+    if (suppliedCount === 0) {
+      this.addRadioMessage({
+        id: crypto.randomUUID(),
+        fromUnitId: '📦 DEPO',
+        message: `HATA: Depo yakınında mühimmata ihtiyacı olan dost birim bulunamadı.`,
+        sentTick: this.time.toTotalMinutes(),
+        category: ReportCategory.DANGER,
+        corrupted: false, type: ReportType.REGULAR,
+      })
+      this.notify()
+      return false
+    }
+
+    this.supplyAmmoCooldown = 6
+    audioManager.playAmmoSupply()
+    this.addRadioMessage({
+      id: crypto.randomUUID(),
+      fromUnitId: '📦 DEPO',
+      message: `[CEPHANE DAĞITIMI] Mühimmat deposundan çevredeki ${suppliedCount} birime acil cephane dağıtımı yapıldı! (Cephaneler Fullendi)`,
+      sentTick: this.time.toTotalMinutes(),
+      category: ReportCategory.SUCCESS,
+      corrupted: false,
+      type: ReportType.REGULAR,
+    })
+    this.notify()
+    return true
+  }
+
+  executeSandbagRepair(x: number, y: number): boolean {
+    if (this.sandbagRepairCooldown > 0) {
+      this.addRadioMessage({
+        id: crypto.randomUUID(),
+        fromUnitId: '🧱 SİPER',
+        message: `HATA: Kum torbaları tahkimatı devam ediyor. Bekleme süresi: ${this.sandbagRepairCooldown} tur.`,
+        sentTick: this.time.toTotalMinutes(),
+        category: ReportCategory.DANGER,
+        corrupted: false, type: ReportType.REGULAR,
+      })
+      this.notify()
+      return false
+    }
+
+    let inspiredCount = 0
+    for (const [, unit] of this.units) {
+      if (unit.isAlive()) {
+        const uPos = unit.getPosition()
+        if (Math.abs(uPos.x - x) <= 1 && Math.abs(uPos.y - y) <= 1) {
+          const soldier = unit as Soldier
+          soldier.adjustMorale(15)
+          inspiredCount++
+        }
+      }
+    }
+
+    if (inspiredCount === 0) {
+      this.addRadioMessage({
+        id: crypto.randomUUID(),
+        fromUnitId: '🧱 SİPER',
+        message: `HATA: Kum torbaları yakınında morali yükseltilecek birim bulunamadı.`,
+        sentTick: this.time.toTotalMinutes(),
+        category: ReportCategory.DANGER,
+        corrupted: false, type: ReportType.REGULAR,
+      })
+      this.notify()
+      return false
+    }
+
+    this.sandbagRepairCooldown = 4
+    audioManager.playConstruction()
+    this.addRadioMessage({
+      id: crypto.randomUUID(),
+      fromUnitId: '🧱 SİPER',
+      message: `[SİPER TAHKİMATI] Kum torbası siperleri güçlendirildi, çevredeki ${inspiredCount} askerin morali yükseltildi! (+15 Moral)`,
+      sentTick: this.time.toTotalMinutes(),
+      category: ReportCategory.SUCCESS,
+      corrupted: false,
+      type: ReportType.REGULAR,
+    })
+    this.notify()
+    return true
   }
 }

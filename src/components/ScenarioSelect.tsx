@@ -2,13 +2,13 @@ import { useState } from 'react'
 import { useGameStore } from '../store/useGameStore'
 import { OPERATIONS } from '../engine/Scenario'
 
-const SCENARIO_ICONS = ['🛡', '🌲', '🌾', '🦅', '⚓', '🌙']
-const SCENARIO_DIFFICULTY = ['ORTA', 'ZOR', 'KOLAY', 'ZOR', 'ÇOK ZOR', 'ORTA']
+const SCENARIO_ICONS = ['🛡', '🌲', '🌾', '🦅', '⚓', '🌙', '⛰']
+const SCENARIO_DIFFICULTY = ['ORTA', 'ZOR', 'KOLAY', 'ZOR', 'ÇOK ZOR', 'ORTA', 'ÇOK ZOR']
 const SCENARIO_DIFF_COLOR = [
-  'text-mil-yellow', 'text-mil-red', 'text-mil-green', 'text-mil-red', 'text-red-500', 'text-mil-yellow'
+  'text-mil-yellow', 'text-mil-red', 'text-mil-green', 'text-mil-red', 'text-red-500', 'text-mil-yellow', 'text-red-500'
 ]
 const SCENARIO_LED_COLOR = [
-  'status-dot-yellow', 'status-dot-red', 'status-dot-green', 'status-dot-red', 'status-dot-red', 'status-dot-yellow'
+  'status-dot-yellow', 'status-dot-red', 'status-dot-green', 'status-dot-red', 'status-dot-red', 'status-dot-yellow', 'status-dot-red'
 ]
 
 const SCENARIO_DETAILS = [
@@ -59,6 +59,14 @@ const SCENARIO_DETAILS = [
     tacticalTip: 'Ağır silah timlerini (MG) kritik geçiş noktalarına konuşlandırın. Baskı ateşini sürekli aktif tutun.',
     primaryAssets: 'Ağır Silah İstasyonları, Yakın Topçu Desteği',
     coordinates: '37.33 N / 43.18 E'
+  },
+  {
+    weather: 'PARÇALI BULUTLU / DAĞ RÜZGARI',
+    terrain: 'SARP DAĞLIK VE VADİ (20x20)',
+    threatLevel: 'KRİTİK (KORUNAN DAĞ MEVZİLERİ)',
+    tacticalTip: 'Kışla yapılarını (Karargah, Hastane, Depo) aktif kullanın. Dağlara tırmanmadan önce karargahtan destek timleri çağırarak ek kuvvet oluşturun.',
+    primaryAssets: 'Birim Sevk Etme (Kışla), Hava İkmal Kutuları, CAS Desteği',
+    coordinates: '37.15 N / 43.40 E'
   }
 ]
 
@@ -91,7 +99,7 @@ export function ScenarioSelect() {
           ▸ HARBİYE SEKTÖR OPERASYON SEÇİMİ ◂
         </div>
         <div className="text-mil-dim text-[10px] tracking-wider uppercase bg-black/40 border border-mil-border px-3 py-1.5 hidden sm:block">
-          SİSTEM VERİSİ: <span className="text-mil-yellow font-bold glow-text-yellow">6 PLANLANDI</span>
+          SİSTEM VERİSİ: <span className="text-mil-yellow font-bold glow-text-yellow">{OPERATIONS.length} PLANLANDI</span>
         </div>
       </div>
 
@@ -196,7 +204,7 @@ export function ScenarioSelect() {
 
               <div className="pt-2 mt-auto border-t border-[#00FFFF]/10 text-[8px] opacity-50 space-y-1">
                 <div>OP_SELECT_SYS: AKTİF</div>
-                <div>SCENARIOS_FOUND: 6</div>
+                <div>SCENARIOS_FOUND: {OPERATIONS.length}</div>
                 <div>ROUTING_METRIC: METRIC_A*</div>
               </div>
             </div>

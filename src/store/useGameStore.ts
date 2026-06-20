@@ -5,6 +5,7 @@
 import { create } from 'zustand'
 import { GameEngine, GameState } from '../engine/GameEngine'
 import { Soldier } from '../engine/Soldier'
+import { webSocketService } from '../services/websocket'
 import {
   SupplyType, SandboxSettings, SoldierRole
 } from '../engine/types'
@@ -17,6 +18,7 @@ interface GameStore {
   selectedUnitId: string | null
   selectedEnemyId: string | null
   attackMode: boolean
+  strikeMode: 'none' | 'artillery' | 'airstrike' | 't129' | 'uh60' | 'uh60-dropoff' | 'attack' | 'command-airdrop'
   appPhase: 'menu' | 'scenario-select' | 'playing' | 'save-load' | 'sandbox-lobby' | 'drafting' | 'multiplayer-lobby' | 'draft-1v1'
   sandboxSettings: SandboxSettings | null
   draftedUnits: Soldier[]
@@ -57,12 +59,18 @@ interface GameStore {
   fireAtEnemy: (unitId: string) => void
   attackMoveToEnemy: (unitId: string, enemyId: string) => void
   setAttackMode: (mode: boolean) => void
+  setStrikeMode: (mode: 'none' | 'artillery' | 'airstrike' | 't129' | 'uh60' | 'uh60-dropoff' | 'attack' | 'command-airdrop') => void
   issueFirePermission: (decision: 'ATES_IZNI_VERILDI' | 'ATES_YASAK' | 'BEKLEMEDE_KAL') => void
   requestSupply: (unitId: string, type: SupplyType, amount: number) => void
   artilleryAt: (x: number, y: number) => boolean
   airStrikeAt: (x: number, y: number) => boolean
-  callT129: (unitId: string, x: number, y: number) => boolean
+  callT129: (x: number, y: number) => boolean
   callUH60: (unitId: string, targetUnitId: string, destX: number, destY: number) => boolean
+  executeCommandAirdrop: (x: number, y: number) => boolean
+  executeCommandReinforce: (x: number, y: number, role: SoldierRole) => boolean
+  executeHospitalHeal: (x: number, y: number) => boolean
+  executeSupplyAmmo: (x: number, y: number) => boolean
+  executeSandbagRepair: (x: number, y: number) => boolean
   sendCommand: (unitId: string, cmd: string) => void
   setSandboxSettings: (settings: SandboxSettings) => void
   addDraftedUnit: (role: SoldierRole) => void
@@ -85,6 +93,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   selectedUnitId: null,
   selectedEnemyId: null,
   attackMode: false,
+  strikeMode: 'none',
   appPhase: 'menu',
   sandboxSettings: null,
   draftedUnits: [],
@@ -127,77 +136,137 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   initMultiplayer: async () => {
-    const { signInAnonymously } = await import('firebase/auth')
-    const { auth } = await import('../services/firebase')
     try {
-      const user = await signInAnonymously(auth)
-      set({ userId: user.user.uid, authError: null })
+      let localId = localStorage.getItem('tactical_sim_userId');
+      if (!localId) {
+        localId = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 15);
+        localStorage.setItem('tactical_sim_userId', localId);
+      }
+      
+      // Register all WebSocket callbacks here
+      webSocketService.on('ROOM_CREATED', (data) => {
+        set({ multiplayerRoomId: data.roomId, isMultiplayer: true, isHost: true });
+        if (data.room.type === 'draft') {
+          get().init1v1Draft();
+          set({ appPhase: 'draft-1v1' });
+        }
+      });
+
+      webSocketService.on('ROOM_JOINED', (data) => {
+        set({ 
+          multiplayerRoomId: data.roomId, 
+          isMultiplayer: true, 
+          isHost: data.room.host === get().userId 
+        });
+        
+        if (data.room.type === 'draft') {
+          get().init1v1Draft();
+          set({ appPhase: 'draft-1v1' });
+        } else {
+          set({ appPhase: 'playing' });
+        }
+
+        if (data.room.gameState) {
+          const { engine } = get();
+          if (engine) {
+            engine.loadFromSave(data.room.gameState);
+            set({ state: engine.getState() });
+          }
+        }
+      });
+
+      webSocketService.on('ROOM_UPDATED', (data) => {
+        if (data.room.status === 'active') {
+          const isHost = data.room.host === get().userId;
+          if (data.room.type === 'draft') {
+            set({ appPhase: 'draft-1v1' });
+          } else {
+            // Host selects scenario first, guest goes to playing (which waits for syncState)
+            set({ appPhase: isHost ? 'scenario-select' : 'playing' });
+          }
+        }
+      });
+
+      webSocketService.on('GAME_STATE_SYNC', (data) => {
+        if (data.gameState) {
+          const { engine } = get();
+          if (engine) {
+            engine.loadFromSave(data.gameState);
+            const engineState = engine.getState();
+            
+            let nextPhase = get().appPhase;
+            if (engineState.matchPhase === 'PLAYING') {
+              nextPhase = 'playing';
+            }
+
+            set({ 
+              state: engineState,
+              appPhase: nextPhase
+            });
+          }
+        }
+      });
+
+      webSocketService.on('OPPONENT_LEFT', (data) => {
+        alert(data.message || 'Rakip oyundan ayrıldı.');
+        set({ 
+          multiplayerRoomId: null, 
+          isMultiplayer: false, 
+          isHost: false,
+          appPhase: 'menu'
+        });
+      });
+
+      webSocketService.on('RECONNECTED', (data) => {
+        console.log(`Reconnected to room ${data.roomId}`);
+        set({ 
+          multiplayerRoomId: data.roomId, 
+          isMultiplayer: true,
+          isHost: data.room.host === get().userId
+        });
+
+        if (data.gameState) {
+          const { engine } = get();
+          if (engine) {
+            engine.loadFromSave(data.gameState);
+            set({ state: engine.getState() });
+          }
+        }
+      });
+
+      // Connect socket
+      webSocketService.connect(localId);
+      set({ userId: localId, authError: null });
     } catch (e: any) {
-      console.error("Firebase Login Error", e)
-      set({ authError: e.message || "Authentication failed" })
+      console.error("WebSocket Init Error", e);
+      set({ authError: e.message || "WebSocket Connection failed" });
     }
   },
 
   joinRoom: async (roomId) => {
-    const { ref, onValue } = await import('firebase/database')
-    const { db } = await import('../services/firebase')
-    const roomRef = ref(db, `rooms/${roomId}`)
-    onValue(roomRef, (snapshot) => {
-      const data = snapshot.val()
-      if (data && data.gameState) {
-        const { engine } = get()
-        if (engine) {
-          engine.loadFromSave(data.gameState)
-          const engineState = engine.getState()
-          const isDraftRoom = data.type === 'draft'
-          
-          let nextPhase = get().appPhase
-          if (isDraftRoom) {
-            // In draft room, we only go to 'playing' if matchPhase is 'PLAYING'
-            if (engineState.matchPhase === 'PLAYING') {
-              nextPhase = 'playing'
-            } else {
-              nextPhase = 'draft-1v1'
-            }
-          } else {
-            nextPhase = 'playing'
-          }
-
-          set({ 
-            state: engineState,
-            appPhase: nextPhase
-          })
-        }
-      }
-    })
-
-    set({ multiplayerRoomId: roomId, isMultiplayer: true, isHost: false })
+    webSocketService.send({
+      type: 'JOIN_ROOM',
+      roomId
+    });
   },
 
   syncState: () => {
-    const { multiplayerRoomId, engine, isMultiplayer, isHost } = get()
-    if (!isMultiplayer || !multiplayerRoomId || !engine) return
+    const { multiplayerRoomId, engine, isMultiplayer } = get();
+    if (!isMultiplayer || !multiplayerRoomId || !engine) return;
     
-    import('firebase/database').then(({ ref, update }) => {
-      import('../services/firebase').then(({ db }) => {
-        const roomRef = ref(db, `rooms/${multiplayerRoomId}/gameState`)
-        const data = engine.serialize() as any
-        
-        // CRITICAL: Prevent stomping on opponent's independent state
-        // When updating, we only want to send our own ready state and budget.
-        // This prevents the "Last Write Wins" bug where we overwrite the opponent's
-        // fresh 'ready: true' with our local 'ready: false' before we've received their update.
-        if (isHost) {
-          delete data.guestReady
-          delete data.guestBudget
-        } else {
-          delete data.hostReady
-          delete data.hostBudget
-        }
+    const data = engine.serialize() as any;
 
-        update(roomRef, data)
-      })
-    })
+    // Filter undefined fields to clean payload
+    Object.keys(data).forEach((key) => {
+      if (data[key] === undefined) {
+        delete data[key];
+      }
+    });
+    
+    webSocketService.send({
+      type: 'GAME_STATE_UPDATE',
+      gameState: data
+    });
   },
 
   startScenario: (index: number, difficulty: 'EASY' | 'STANDARD' | 'HARD' = 'STANDARD') => {
@@ -301,6 +370,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
     set({ attackMode: mode })
   },
 
+  setStrikeMode: (mode) => {
+    set({ strikeMode: mode })
+  },
+
   issueFirePermission: (decision) => {
     const { engine, syncState } = get()
     if (!engine) return
@@ -335,10 +408,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
     return ok
   },
 
-  callT129: (unitId, x, y) => {
+  callT129: (x, y) => {
     const { engine, syncState } = get()
     if (!engine) return false
-    const ok = engine.callT129(unitId, x, y)
+    const ok = engine.callT129(x, y)
     set({ state: engine.getState() })
     syncState()
     return ok
@@ -348,6 +421,51 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const { engine, syncState } = get()
     if (!engine) return false
     const ok = engine.callUH60(unitId, targetUnitId, destX, destY)
+    set({ state: engine.getState() })
+    syncState()
+    return ok
+  },
+
+  executeCommandAirdrop: (x, y) => {
+    const { engine, syncState } = get()
+    if (!engine) return false
+    const ok = engine.executeCommandAirdrop(x, y)
+    set({ state: engine.getState() })
+    syncState()
+    return ok
+  },
+
+  executeCommandReinforce: (x, y, role) => {
+    const { engine, syncState } = get()
+    if (!engine) return false
+    const ok = engine.executeCommandReinforce(x, y, role)
+    set({ state: engine.getState() })
+    syncState()
+    return ok
+  },
+
+  executeHospitalHeal: (x, y) => {
+    const { engine, syncState } = get()
+    if (!engine) return false
+    const ok = engine.executeHospitalHeal(x, y)
+    set({ state: engine.getState() })
+    syncState()
+    return ok
+  },
+
+  executeSupplyAmmo: (x, y) => {
+    const { engine, syncState } = get()
+    if (!engine) return false
+    const ok = engine.executeSupplyAmmo(x, y)
+    set({ state: engine.getState() })
+    syncState()
+    return ok
+  },
+
+  executeSandbagRepair: (x, y) => {
+    const { engine, syncState } = get()
+    if (!engine) return false
+    const ok = engine.executeSandbagRepair(x, y)
     set({ state: engine.getState() })
     syncState()
     return ok

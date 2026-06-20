@@ -49,7 +49,7 @@ export const CombatSystem = {
 
   resolveAttack(attacker: Soldier, defender: EnemyUnit, map: MapGrid): CombatResult {
     const result: CombatResult = { attackHit: false, defenderKilled: false, damageDealt: 0, reportMessage: '', category: ReportCategory.REGULAR, enemyTauntMessage: '' }
-    if (!attacker.isAlive() || !defender.isAlive()) return result
+    if (!attacker.isAlive() || !defender.isAlive() || attacker.isIncapacitated()) return result
     if (attacker.getAmmo() <= 0) {
       result.reportMessage = 'Mühimmat tükendi, ateşe karşılık veremiyoruz!'
       return result
@@ -70,6 +70,21 @@ export const CombatSystem = {
     }
 
     attacker.consumeAmmo(3)
+    
+    // Play attacker's custom weapon sound
+    const attackerRole = attacker.getRole()
+    if (attackerRole === SoldierRole.ARMORED) {
+      audioManager.playTankFire()
+    } else if (attackerRole === SoldierRole.SNIPER) {
+      audioManager.playSniperShot()
+    } else if (attackerRole === SoldierRole.ENGINEER) {
+      audioManager.playRocketLaunch()
+    } else if (attackerRole === SoldierRole.MG) {
+      audioManager.playMGBurst()
+    } else {
+      audioManager.playRifleShot()
+    }
+
     const roll = d100()
     const defTerrain = map.getTerrain(defender.getPosition().x, defender.getPosition().y)
     const hitChance = calculateHitChance(50, attacker.getMorale(), false, defTerrain)
@@ -95,11 +110,6 @@ export const CombatSystem = {
       result.category = ReportCategory.SUCCESS
 
       audioManager.startGunfireAmbient()
-      if (attacker.getRole() === SoldierRole.SNIPER && isCritical) {
-        audioManager.playSniperShot()
-      } else if (attacker.getRole() === SoldierRole.ARMORED) {
-        audioManager.playTankFire()
-      }
 
       if (!defender.isAlive()) {
         result.defenderKilled = true
@@ -124,8 +134,20 @@ export const CombatSystem = {
 
   resolveEnemyAttack(attacker: EnemyUnit, defender: Soldier, map: MapGrid, damageMultiplier: number = 1.0): CombatResult {
     const result: CombatResult = { attackHit: false, defenderKilled: false, damageDealt: 0, reportMessage: '', category: ReportCategory.REGULAR, enemyTauntMessage: '' }
-    if (!attacker.isAlive() || !defender.isAlive()) return result
+    if (!attacker.isAlive() || !defender.isAlive() || defender.isIncapacitated()) return result
     attacker.consumeAmmo(3)
+
+    // Play enemy's custom weapon sound
+    const enemyType = attacker.getType()
+    if (enemyType === EnemyType.ARMORED) {
+      audioManager.playTankFire()
+    } else if (enemyType === EnemyType.SNIPER) {
+      audioManager.playSniperShot()
+    } else if (enemyType === EnemyType.MG) {
+      audioManager.playMGBurst()
+    } else {
+      audioManager.playRifleShot()
+    }
 
     const defTerrain = map.getTerrain(defender.getPosition().x, defender.getPosition().y)
     const hitChance = calculateHitChance(40, attacker.getMorale(), defender.isInCover(), defTerrain)
@@ -152,14 +174,9 @@ export const CombatSystem = {
       result.category = ReportCategory.DANGER
 
       audioManager.startGunfireAmbient()
-      if (attacker.getType() === EnemyType.SNIPER && result.damageDealt > 40) { // Approx critical
-        audioManager.playSniperShot()
-      } else if (attacker.getType() === EnemyType.ARMORED) {
-        audioManager.playTankFire()
-      }
 
-      if (!defender.isAlive()) {
-        result.reportMessage = pick(['Komutanım... (Statik gürültü)... Vuruldu... Tertibim düştü... Sinyal koptu.', 'Karargah... Vuruldum... Kelime-i şehadet getiriyoruz... Allah\'a emanet.', 'Mevzimize çöküldü! Şehidimiz var! Kanları yerde kalma... (Telsiz kesilmesi)'])
+      if (defender.getHp() <= 0) {
+        result.reportMessage = pick(['Komutanım... (Statik gürültü)... Vuruldu... Tertibim düştü... Acil sıhhi tahliye lazım!', 'Karargah... Vuruldum... Ağır yaralıyız, gözlerim kararıyor... Sahra hastanesine taşınmam gerek...', 'Mevzimize çöküldü! Askerimiz düştü! Onu geride bırakamayız, acil yardım!'])
         result.enemyTauntMessage = pick(['Devletinizin köpekleri bir bir düşüyor! Burası size mezar olacak!', 'Telsiziniz artık bizde. Hepinizi kendi kanınızda boğacağız!', 'Komutan diye güvendiğiniz adamlar sizi ölüme yolluyor! Burası cehennem!'])
       } else {
         if (attacker.getType() === EnemyType.ARMORED) {
@@ -193,7 +210,7 @@ export const CombatSystem = {
     const defTerrain = map.getTerrain(target.getPosition().x, target.getPosition().y)
 
     for (const atk of attackers) {
-      if (!atk.isAlive() || atk.getAmmo() <= 0) continue
+      if (!atk.isAlive() || atk.isIncapacitated() || atk.getAmmo() <= 0) continue
       atk.consumeAmmo(4)
       const hitChance = Math.min(95, calculateHitChance(55 + count * 5, atk.getMorale(), false, defTerrain))
       if (d100() <= hitChance) {

@@ -42,10 +42,10 @@ export class Soldier extends Unit {
   update(deltaTick: number): void {
     if (!this.alive) return
     this.tickAccumulator += deltaTick
-    // Erzak tüketimi: 60 dakikada bir
-    if (this.tickAccumulator >= 60) {
+    // Erzak tüketimi: 12 turda bir
+    if (this.tickAccumulator >= 12) {
       this.consumeRations()
-      this.tickAccumulator -= 60
+      this.tickAccumulator -= 12
     }
 
     if (this.underFireDuration > 0) {
@@ -83,8 +83,8 @@ export class Soldier extends Unit {
   override generateStatusReport(): string {
     const roleName = roleToString(this.role)
     const coverStr = this.inCover ? ' [SİPER]' : ''
-    const incapStr = this.incapacitated ? ' [YARALANDI]' : ''
-    const statusStr = !this.alive ? '[DÜŞTÜ]' : '[AKTİF]'
+    const incapStr = this.incapacitated ? (this.hp === 0 ? ' [DÜŞTÜ]' : ' [YARALANDI]') : ''
+    const statusStr = this.hp === 0 ? '[DÜŞTÜ]' : '[AKTİF]'
     return `[${this.id}] ${this.name} (${roleName}) | HP:${this.hp}/${this.maxHp} | Moral:${this.morale} | Cph:${this.ammo} | Erzak:${this.rations} | Mdkt:${this.medkitCount}${coverStr}${incapStr} ${statusStr}`
   }
 
@@ -125,12 +125,8 @@ export class Soldier extends Unit {
 
   override takeDamage(dmg: number): void {
     this.hp = Math.max(0, this.hp - dmg)
-    if (this.hp <= 20 && this.hp > 0) {
+    if (this.hp <= 20) {
       this.incapacitated = true
-    }
-    if (this.hp <= 0) {
-      this.alive = false
-      this.incapacitated = false
     }
   }
 

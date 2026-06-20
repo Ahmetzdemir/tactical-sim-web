@@ -1,22 +1,15 @@
 import { useState, useEffect } from 'react'
 import { useGameStore } from '../store/useGameStore'
-import { db } from '../services/firebase'
-import { ref, set as fbSet, onValue, get as fbGet, onDisconnect } from 'firebase/database'
-
-const generateShortId = () => {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789' // Avoid easily confused chars O, 0, I, 1
-  let result = ''
-  for (let i = 0; i < 6; i++) {
-    result += chars.charAt(Math.floor(Math.random() * chars.length))
-  }
-  return result
-}
+import { webSocketService } from '../services/websocket'
 
 export function LobbyComponent() {
-  const { userId, authError, initMultiplayer, setAppPhase, joinRoom, init1v1Draft } = useGameStore()
+  const { userId, authError, initMultiplayer, setAppPhase } = useGameStore()
   const [loading, setLoading] = useState(false)
   const [roomIdInput, setRoomIdInput] = useState('')
   const [statusMessage, setStatusMessage] = useState('')
+
+  const roomId = useGameStore(s => s.multiplayerRoomId)
+  const isHost = useGameStore(s => s.isHost)
 
   useEffect(() => {
     if (!userId && !authError) {
@@ -24,140 +17,45 @@ export function LobbyComponent() {
     }
   }, [userId, authError, initMultiplayer])
 
-  const createRoom = async () => {
+  useEffect(() => {
+    if (roomId) {
+      if (isHost) {
+        setStatusMessage(`Oda oluşturuldu: ${roomId}. Rakibini bekle...`);
+      } else {
+        setStatusMessage(`Odaya bağlanıldı: ${roomId}`);
+      }
+      setLoading(false);
+    }
+  }, [roomId, isHost])
+
+  const createRoom = () => {
     if (!userId) return
     setLoading(true)
     setStatusMessage('Oda oluşturuluyor...')
-    
-    const roomId = generateShortId()
-    const roomRef = ref(db, `rooms/${roomId}`)
-
-    const roomData = {
-      host: userId,
-      status: 'waiting',
-      createdAt: Date.now()
-    }
-
-    try {
-      await fbSet(roomRef, roomData)
-      // Disconnect cleanup: Remove room if host departs
-      onDisconnect(roomRef).remove()
-      
-      onValue(ref(db, `rooms/${roomId}/status`), (snapshot) => {
-        if (snapshot.val() === 'active') {
-          setAppPhase('scenario-select')
-        }
-      })
-
-      await joinRoom(roomId)
-      useGameStore.setState({ isHost: true })
-      setStatusMessage(`Oda oluşturuldu: ${roomId}. Arkadaşını bekle...`)
-    } catch (err) {
-      console.error(err)
-      setStatusMessage('Oda oluşturulamadı. Lütfen tekrar deneyin.')
-    }
-    setLoading(false)
+    webSocketService.send({ type: 'CREATE_ROOM', roomType: 'battle' })
   }
 
-  const createDraftRoom = async () => {
+  const createDraftRoom = () => {
     if (!userId) return
     setLoading(true)
     setStatusMessage('1v1 Draft odası oluşturuluyor...')
-    
-    const roomId = generateShortId()
-    const roomRef = ref(db, `rooms/${roomId}`)
-
-    try {
-      await fbSet(roomRef, { 
-        host: userId, 
-        status: 'waiting', 
-        type: 'draft', 
-        createdAt: Date.now() 
-      })
-      // Disconnect cleanup
-      onDisconnect(roomRef).remove()
-
-      await joinRoom(roomId)
-      useGameStore.setState({ isHost: true })
-      init1v1Draft()
-      setStatusMessage(`Draft odası: ${roomId}. Rakibini bekle...`)
-      setAppPhase('draft-1v1')
-    } catch (err) {
-      console.error(err)
-      setStatusMessage('Oda oluşturulamadı.')
-    }
-    setLoading(false)
+    webSocketService.send({ type: 'CREATE_ROOM', roomType: 'draft' })
   }
 
-  const findAndJoinRandomRoom = async () => {
+  const findAndJoinRandomRoom = () => {
     if (!userId) return
     setLoading(true)
     setStatusMessage('Açık oda aranıyor...')
-    const roomsRef = ref(db, 'rooms')
-    const snapshot = await fbGet(roomsRef)
-    const rooms = snapshot.val()
-
-    let foundRoomId = null
-    if (rooms) {
-      for (const id in rooms) {
-        if (rooms[id].status === 'waiting' && rooms[id].host !== userId) {
-          foundRoomId = id
-          break
-        }
-      }
-    }
-
-    if (foundRoomId) {
-      await fbSet(ref(db, `rooms/${foundRoomId}/guest`), userId)
-      await fbSet(ref(db, `rooms/${foundRoomId}/status`), 'active')
-      // Guest disconnection cleanup: Clear guest field (but keep room for host)
-      // Actually, if it's a 1v1 battle, maybe we want to alert the host?
-      // For now, let's just clear the guest field.
-      onDisconnect(ref(db, `rooms/${foundRoomId}/guest`)).remove()
-      
-      await joinRoom(foundRoomId)
-      if (rooms[foundRoomId].type === 'draft') {
-        init1v1Draft()
-        setAppPhase('draft-1v1')
-      } else {
-        setAppPhase('playing')
-      }
-    } else {
-      setStatusMessage('Açık oda bulunamadı. Yeni oda oluşturuluyor...')
-      await createRoom()
-    }
-    setLoading(false)
+    webSocketService.send({ type: 'MATCHMAKE', roomType: 'battle' })
   }
 
-  const joinSpecificRoom = async () => {
+  const joinSpecificRoom = () => {
     if (!roomIdInput || !userId) return
     setLoading(true)
     setStatusMessage('Odaya bağlanılıyor...')
-    
-    const roomRef = ref(db, `rooms/${roomIdInput}`)
-    const snapshot = await fbGet(roomRef)
-    
-    if (snapshot.exists()) {
-      const roomData = snapshot.val()
-      const guestRef = ref(db, `rooms/${roomIdInput}/guest`)
-      await fbSet(guestRef, userId)
-      await fbSet(ref(db, `rooms/${roomIdInput}/status`), 'active')
-      // Guest disconnection cleanup
-      onDisconnect(guestRef).remove()
-
-      await joinRoom(roomIdInput)
-      
-      if (roomData.type === 'draft') {
-        init1v1Draft()
-        setAppPhase('draft-1v1')
-      } else {
-        setAppPhase('playing')
-      }
-    } else {
-      setStatusMessage('Geçersiz oda kodu!')
-      setLoading(false)
-    }
+    webSocketService.send({ type: 'JOIN_ROOM', roomId: roomIdInput })
   }
+
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-mil-bg font-mono">

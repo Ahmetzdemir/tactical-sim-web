@@ -241,7 +241,7 @@ function MedevacAnimation({ tx, ty }: { tx: number; ty: number }) {
         <div className="medevac-ring absolute rounded-full border-2"
           style={{
             width: 72, height: 72, left: -36, top: -36,
-            borderColor: 'rgba(239,68,68,0.55)',
+            borderColor: 'rgba(0,255,255,0.55)',
           }} />
       </div>
 
@@ -256,11 +256,11 @@ function MedevacAnimation({ tx, ty }: { tx: number; ty: number }) {
                 <line x1="45" y1="1" x2="45" y2="11" stroke="#ddd" strokeWidth="2.5" />
               </g>
               <circle cx="45" cy="6" r="3.5" fill="#999" />
-              <path d="M 15,10 L 72,10 L 78,22 L 72,32 L 15,32 L 8,22 Z" fill="#c0392b" stroke="#8b0000" strokeWidth="1.2" />
-              <rect x="38" y="14" width="14" height="4" rx="1" fill="white" />
-              <rect x="43" y="11" width="4" height="10" rx="1" fill="white" />
+              <path d="M 15,10 L 72,10 L 78,22 L 72,32 L 15,32 L 8,22 Z" fill="#2d4a2d" stroke="#1d301d" strokeWidth="1.2" />
+              <rect x="38" y="14" width="14" height="4" rx="1" fill="#444" />
+              <rect x="43" y="11" width="4" height="10" rx="1" fill="#444" />
               <path d="M 60,12 L 76,20 L 72,30 L 60,30 Z" fill="#a0d4ff" opacity="0.65" />
-              <path d="M 8,22 L -14,20 L -16,24 L 8,25 Z" fill="#991b1b" stroke="#8b0000" strokeWidth="0.8" />
+              <path d="M 8,22 L -14,20 L -16,24 L 8,25 Z" fill="#243b24" stroke="#1d301d" strokeWidth="0.8" />
               <g className="rotor-spin" style={{ transformOrigin: '-16px 22px' }}>
                 <line x1="-16" y1="17" x2="-16" y2="27" stroke="#bbb" strokeWidth="1.5" />
                 <line x1="-21" y1="22" x2="-11" y2="22" stroke="#bbb" strokeWidth="1.5" />
@@ -284,14 +284,15 @@ function MedevacAnimation({ tx, ty }: { tx: number; ty: number }) {
         </div>
       </div>
 
-      {/* ── Red cross glow: wrapper centers at (tx,ty), inner div runs glow animation ── */}
+      {/* ── Helipad landing glow: wrapper centers at (tx,ty) ── */}
       <div style={{ position: 'absolute', left: cx, top: cy, width: 0, height: 0 }}>
-        <div className="red-cross-glow absolute" style={{ left: -17, top: -17 }}>
-          <svg width="34" height="34" viewBox="0 0 34 34">
-            <circle cx="17" cy="17" r="16" fill="rgba(239,68,68,0.2)" stroke="rgba(239,68,68,0.85)" strokeWidth="1.5" />
-            <rect x="12" y="7" width="10" height="20" rx="2" fill="#ef4444" />
-            <rect x="7" y="12" width="20" height="10" rx="2" fill="#ef4444" />
-          </svg>
+        <div className="absolute rounded-full border-2 animate-pulse"
+          style={{
+            width: 36, height: 36, left: -18, top: -18,
+            borderColor: 'rgba(0,255,255,0.65)',
+            background: 'rgba(0,255,255,0.08)',
+          }}>
+          <div className="flex items-center justify-center h-full text-[10px] font-bold text-[#00FFFF] font-mono">H</div>
         </div>
       </div>
 
@@ -300,7 +301,7 @@ function MedevacAnimation({ tx, ty }: { tx: number; ty: number }) {
         <div className="absolute rounded-full"
           style={{
             width: 55, height: 22, left: -27, top: 5,
-            background: 'radial-gradient(ellipse, rgba(255,255,210,0.28) 0%, transparent 80%)',
+            background: 'radial-gradient(ellipse, rgba(200,255,255,0.28) 0%, transparent 80%)',
             animation: 'medevacPulse 0.75s ease-in-out infinite',
           }} />
       </div>
@@ -311,6 +312,11 @@ function MedevacAnimation({ tx, ty }: { tx: number; ty: number }) {
 // ── Main Export ─────────────────────────────────────────────────
 export function AnimationOverlay({ animation, targetX, targetY, onDone }: AnimationOverlayProps) {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const onDoneRef = useRef(onDone)
+
+  useEffect(() => {
+    onDoneRef.current = onDone
+  }, [onDone])
 
   useEffect(() => {
     if (!animation) return
@@ -320,9 +326,11 @@ export function AnimationOverlay({ animation, targetX, targetY, onDone }: Animat
       atak: 3000,
       medevac: 4000,
     }
-    timerRef.current = setTimeout(onDone, durations[animation] ?? 2000)
+    timerRef.current = setTimeout(() => {
+      onDoneRef.current()
+    }, durations[animation] ?? 2000)
     return () => { if (timerRef.current) clearTimeout(timerRef.current) }
-  }, [animation, onDone])
+  }, [animation])
 
   if (!animation) return null
 

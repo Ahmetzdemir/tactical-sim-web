@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react'
 import { useGameStore } from '../store/useGameStore'
 import { Soldier } from '../engine/Soldier'
 import { EnemyUnit } from '../engine/EnemyUnit'
@@ -50,21 +51,276 @@ function getPassiveAbility(role: SoldierRole): string {
 
 
 export function UnitHUD() {
-  const { state, selectedUnitId, selectedEnemyId, selectUnit, requestSupply, sendCommand, setAttackMode } = useGameStore()
+  const {
+    state, selectedUnitId, selectedEnemyId,
+    selectUnit, requestSupply, sendCommand, setAttackMode,
+    strikeMode, setStrikeMode,
+    executeHospitalHeal, executeSupplyAmmo, executeSandbagRepair,
+    executeCommandReinforce,
+  } = useGameStore()
+
+  const [activeTab, setActiveTab] = useState<'units' | 'structures'>('units')
+
+  useEffect(() => {
+    if (selectedUnitId || selectedEnemyId) {
+      setActiveTab('units')
+    }
+  }, [selectedUnitId, selectedEnemyId])
 
   if (!state) return null
 
   const selectedUnit = selectedUnitId ? (state.units.get(selectedUnitId) as Soldier | undefined) : null
   const selectedEnemy = selectedEnemyId ? (state.enemies.get(selectedEnemyId) as EnemyUnit | undefined) : null
 
+  // 1. SCAN FOR STRUCTURES AND ACTIVE CONSTRUCTIONS
+  const { mapGrid } = state
+  const grid = mapGrid.getGrid()
+  const structuresList: { type: TerrainType; x: number; y: number; name: string; emoji: string }[] = []
+  
+  for (let y = 0; y < mapGrid.height; y++) {
+    for (let x = 0; x < mapGrid.width; x++) {
+      const terrain = grid[y]?.[x]
+      if (
+        terrain === TerrainType.FOB_COMMAND ||
+        terrain === TerrainType.FOB_HOSPITAL ||
+        terrain === TerrainType.FOB_SUPPLY ||
+        terrain === TerrainType.FOB_SANDBAGS
+      ) {
+        let name = ''
+        let emoji = ''
+        if (terrain === TerrainType.FOB_COMMAND) { name = 'Komuta Merkezi'; emoji = '⛺' }
+        else if (terrain === TerrainType.FOB_HOSPITAL) { name = 'Sahra Hastanesi'; emoji = '🏥' }
+        else if (terrain === TerrainType.FOB_SUPPLY) { name = 'Mühimmat Deposu'; emoji = '📦' }
+        else if (terrain === TerrainType.FOB_SANDBAGS) { name = 'Kum Torbası Siperi'; emoji = '🧱' }
+        
+        structuresList.push({ type: terrain, x, y, name, emoji })
+      }
+    }
+  }
+
+  const constructionsList: { x: number; y: number; structureType: TerrainType; progress: number; targetProgress: number; builderId: string }[] = []
+  if (state.activeConstructions) {
+    for (const [coord, constr] of state.activeConstructions) {
+      const [xs, ys] = coord.split(',')
+      const x = parseInt(xs)
+      const y = parseInt(ys)
+      constructionsList.push({
+        x,
+        y,
+        structureType: constr.structureType,
+        progress: constr.progress,
+        targetProgress: constr.targetProgress,
+        builderId: constr.builderId,
+      })
+    }
+  }
+
+  const renderTabsHeader = () => (
+    <div className="flex border-b border-mil-border bg-mil-panel flex-shrink-0">
+      <button
+        onClick={() => setActiveTab('units')}
+        className={`flex-1 py-2.5 text-xs font-bold tracking-widest uppercase transition-all border-b-2 ${
+          activeTab === 'units'
+            ? 'border-b-mil-cyan text-mil-cyan bg-cyan-950/10'
+            : 'border-b-transparent text-mil-dim hover:text-mil-textBright hover:bg-white/5'
+        }`}
+      >
+        🎖 BİRİM DURUMU
+      </button>
+      <button
+        onClick={() => setActiveTab('structures')}
+        className={`flex-1 py-2.5 text-xs font-bold tracking-widest uppercase transition-all border-b-2 ${
+          activeTab === 'structures'
+            ? 'border-b-mil-yellow text-mil-yellow bg-yellow-950/10'
+            : 'border-b-transparent text-mil-dim hover:text-mil-textBright hover:bg-white/5'
+        }`}
+      >
+        ⛺ YAPILAR {structuresList.length > 0 && `(${structuresList.length})`}
+      </button>
+    </div>
+  )
+
+  if (activeTab === 'structures') {
+    return (
+      <div className="flex flex-col h-full font-mono">
+        {renderTabsHeader()}
+        <div className="flex-1 overflow-y-auto p-3 space-y-4">
+          {/* Constructions */}
+          {constructionsList.length > 0 && (
+            <div className="space-y-2">
+              <div className="text-mil-yellow text-[10px] font-bold tracking-widest uppercase">🏗️ İNŞAATI SÜRENLER</div>
+              <div className="space-y-2">
+                {constructionsList.map(({ x, y, structureType, progress, targetProgress, builderId }) => {
+                  const name = structureType === TerrainType.FOB_COMMAND ? 'Komuta Merkezi' : structureType === TerrainType.FOB_HOSPITAL ? 'Sahra Hastanesi' : structureType === TerrainType.FOB_SUPPLY ? 'Mühimmat Deposu' : 'Kum Torbası Siperi'
+                  const pct = Math.round((progress / targetProgress) * 100)
+                  return (
+                    <div key={`${x},${y}`} className="border border-mil-border bg-mil-panel/50 p-2.5 space-y-1.5">
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="text-mil-textBright font-bold">{name} ({x}, {y})</span>
+                        <span className="text-mil-yellow text-[10px] font-mono">{pct}%</span>
+                      </div>
+                      <div className="w-full h-1.5 bg-mil-bg">
+                        <div className="h-full bg-mil-yellow" style={{ width: `${pct}%` }} />
+                      </div>
+                      <div className="text-[10px] text-mil-dim flex justify-between">
+                        <span>Mevcut: {progress}/{targetProgress} tur</span>
+                        <span>İnşacı: {builderId}</span>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Active structures */}
+          <div>
+            <div className="text-mil-cyan text-[10px] font-bold tracking-widest uppercase mb-2">🏢 AKTİF ASKERİ YAPILAR</div>
+            {structuresList.length === 0 ? (
+              <div className="text-center py-8 text-mil-dim text-[10px] border border-dashed border-mil-border leading-relaxed">
+                HENÜZ İNŞA EDİLMİŞ YAPI BULUNMUYOR.<br/>
+                BİR İSTİHKAM ERİ (ENGINEER) SEÇİP HARİTADA İNŞAAT PROTOKOLÜ BAŞLATIN.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {structuresList.map(({ type, x, y, name, emoji }) => {
+                  let isCooldown = false
+                  let cooldownVal = 0
+                  let actionText = ''
+                  let actionDesc = ''
+                  let onAction: () => void = () => {}
+                  let actionBtnColor = ''
+
+                  if (type === TerrainType.FOB_COMMAND) {
+                    cooldownVal = state.commandAirdropCooldown || 0
+                    isCooldown = cooldownVal > 0
+                    actionText = '📦 HAVA İKMALİ İSTE'
+                    actionDesc = 'Haritada seçeceğiniz boş bir araziye paraşütle 3x İnşaat Malzemesi kolisi indirir.'
+                    actionBtnColor = isCooldown 
+                      ? 'border-mil-border text-mil-dim bg-transparent cursor-not-allowed' 
+                      : strikeMode === 'command-airdrop'
+                        ? 'border-[#FFD700] text-[#FFD700] bg-yellow-950/20 animate-pulse font-extrabold'
+                        : 'border-mil-yellow text-mil-yellow hover:bg-yellow-950/20'
+                    onAction = () => {
+                      if (strikeMode === 'command-airdrop') {
+                        setStrikeMode('none')
+                      } else {
+                        setStrikeMode('command-airdrop')
+                      }
+                    }
+                  } else if (type === TerrainType.FOB_HOSPITAL) {
+                    cooldownVal = state.hospitalHealCooldown || 0
+                    isCooldown = cooldownVal > 0
+                    actionText = '💉 ACİL SIHHİ TAKVİYE'
+                    actionDesc = 'Hastane çevresindeki (ve altındaki) tüm dost birimleri +25 HP anında iyileştirir.'
+                    actionBtnColor = isCooldown ? 'border-mil-border text-mil-dim bg-transparent cursor-not-allowed' : 'border-mil-green text-mil-green hover:bg-green-950/20'
+                    onAction = () => {
+                      executeHospitalHeal(x, y)
+                    }
+                  } else if (type === TerrainType.FOB_SUPPLY) {
+                    cooldownVal = state.supplyAmmoCooldown || 0
+                    isCooldown = cooldownVal > 0
+                    actionText = '🔋 MÜHİMMAT DAĞITIMI'
+                    actionDesc = 'Mühimmat deposu çevresindeki (ve altındaki) tüm dost birimlerin mühimmatını yeniler.'
+                    actionBtnColor = isCooldown ? 'border-mil-border text-mil-dim bg-transparent cursor-not-allowed' : 'border-mil-cyan text-mil-cyan hover:bg-cyan-950/20'
+                    onAction = () => {
+                      executeSupplyAmmo(x, y)
+                    }
+                  } else if (type === TerrainType.FOB_SANDBAGS) {
+                    cooldownVal = state.sandbagRepairCooldown || 0
+                    isCooldown = cooldownVal > 0
+                    actionText = '🧱 SİPERI ONAR & MORAL VER'
+                    actionDesc = 'Kum torbaları çevresindeki (ve altındaki) tüm dost askerlerin moralini +15 artırır.'
+                    actionBtnColor = isCooldown ? 'border-mil-border text-mil-dim bg-transparent cursor-not-allowed' : 'border-slate-400 text-slate-300 hover:bg-slate-800/40'
+                    onAction = () => {
+                      executeSandbagRepair(x, y)
+                    }
+                  }
+
+                  return (
+                    <div key={`${x},${y}`} className="border border-mil-border bg-mil-panel p-3 space-y-2">
+                      <div className="flex justify-between items-center border-b border-mil-border/50 pb-1.5">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-lg">{emoji}</span>
+                          <span className="text-mil-textBright font-bold text-xs tracking-wide uppercase">{name}</span>
+                        </div>
+                        <span className="text-[10px] text-mil-cyan font-mono bg-cyan-950/10 px-1.5 py-0.5 border border-mil-cyan/20">
+                          {x.toString().padStart(2, '0')}.{y.toString().padStart(2, '0')}
+                        </span>
+                      </div>
+
+                      <div className="text-[10px] text-mil-dim leading-relaxed font-mono">
+                        {actionDesc}
+                      </div>
+
+                      {isCooldown ? (
+                        <div className="flex justify-between items-center text-[10px] bg-red-950/20 border border-red-900/30 p-2 text-mil-red font-mono">
+                          <span className="font-bold flex items-center gap-1">
+                            <span className="animate-spin inline-block">⏳</span> BEKLEMEDE
+                          </span>
+                          <span className="font-mono font-bold text-xs">{cooldownVal} TUR</span>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={onAction}
+                          className={`w-full py-1.5 text-[10px] font-bold uppercase tracking-wider border transition-all font-mono ${actionBtnColor}`}
+                        >
+                          {actionText}
+                        </button>
+                      )}
+
+                      {type === TerrainType.FOB_COMMAND && (
+                        <div className="border-t border-mil-border/50 pt-2 mt-2 space-y-2">
+                          <div className="text-[10px] text-mil-yellow font-bold uppercase tracking-widest font-mono">
+                            🪖 DESTEK TİMİ SEVK ET
+                          </div>
+                          {state.commandReinforceCooldown > 0 ? (
+                            <div className="flex justify-between items-center text-[10px] bg-red-950/20 border border-red-900/30 p-2 text-mil-red font-mono">
+                              <span className="font-bold flex items-center gap-1">
+                                <span className="animate-spin inline-block">⏳</span> SEVKIYAT BEKLEMEDE
+                              </span>
+                              <span className="font-mono font-bold text-xs">{state.commandReinforceCooldown} TUR</span>
+                            </div>
+                          ) : (
+                            <div className="grid grid-cols-2 gap-1 font-mono">
+                              {([
+                                { role: SoldierRole.RIFLEMAN, label: 'Piyade', emoji: '🔫' },
+                                { role: SoldierRole.MEDIC, label: 'Sıhhiye', emoji: '💊' },
+                                { role: SoldierRole.MG, label: 'Ağır Silah', emoji: '💥' },
+                                { role: SoldierRole.SNIPER, label: 'Sniper', emoji: '🎯' },
+                                { role: SoldierRole.ENGINEER, label: 'İstihkam', emoji: '🔧' },
+                                { role: SoldierRole.ARMORED, label: 'Zırhlı', emoji: '🚜' },
+                              ] as const).map(({ role, label, emoji }) => (
+                                <button
+                                  key={role}
+                                  onClick={() => executeCommandReinforce(x, y, role)}
+                                  className="py-1 px-1 border border-mil-yellow/40 text-mil-yellow hover:bg-yellow-950/20 text-[9px] font-bold text-center uppercase tracking-tight flex items-center justify-center gap-1 transition-all"
+                                  title={`${label} birimini karargah çevresindeki boş bir kareye sevk eder.`}
+                                >
+                                  <span>{emoji}</span>
+                                  <span>{label}</span>
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   if (selectedEnemy && !selectedUnit) {
     // Show enemy info
     return (
       <div className="flex flex-col h-full">
-        <div className="px-3 py-2 border-b border-mil-border bg-mil-panel flex items-center gap-2 flex-shrink-0">
-          <span className="text-mil-red text-xs">⚠</span>
-          <span className="text-mil-dim text-xs font-bold tracking-widest">DÜŞMAN BİLGİSİ</span>
-        </div>
+        {renderTabsHeader()}
         <div className="flex-1 p-3 overflow-y-auto">
           <div className="border border-mil-border bg-mil-panel p-3 mb-3">
             <div className="flex items-center gap-3">
@@ -110,10 +366,7 @@ export function UnitHUD() {
   if (!selectedUnit) {
     return (
       <div className="flex flex-col h-full">
-        <div className="px-3 py-2 border-b border-mil-border bg-mil-panel flex items-center gap-2 flex-shrink-0">
-          <span className="text-mil-cyan text-xs">🎖</span>
-          <span className="text-mil-dim text-xs font-bold tracking-widest">BİRİM DURUMU</span>
-        </div>
+        {renderTabsHeader()}
         <div className="flex-1 flex flex-col items-center justify-center p-4 text-center">
           <div className="text-mil-dim text-xs mb-4">
             Haritadan bir birlik seçin
@@ -178,11 +431,7 @@ export function UnitHUD() {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header */}
-      <div className="px-3 py-3 border-b border-mil-border bg-mil-panel flex items-center gap-2 flex-shrink-0">
-        <span className="text-mil-cyan text-lg">🎖</span>
-        <span className="text-mil-textBright text-sm font-bold tracking-widest leading-none">BİRİM DURUMU</span>
-      </div>
+      {renderTabsHeader()}
 
       <div className="flex-1 overflow-y-auto p-3 space-y-3">
         {/* Unit identity card */}

@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useGameStore } from '../store/useGameStore'
 import { SoldierRole } from '../engine/types'
-import { db } from '../services/firebase'
-import { ref, onValue, remove } from 'firebase/database'
+import { webSocketService } from '../services/websocket'
 
 const UNIT_ROSTER = [
   { role: SoldierRole.RIFLEMAN,  name: '🪖 Standart Piyade',     cost: 100, desc: 'Dengeli, çok sayıda alınabilir.' },
@@ -42,6 +41,7 @@ export function Draft1v1Component() {
     engine,
     buyUnit1v1, placeUnit1v1, setReady1v1, endTurn1v1,
     setAppPhase,
+    state: gameState,
   } = useGameStore()
 
   const [localPhase, setLocalPhase] = useState<'draft' | 'placement' | 'playing' | 'ended'>('draft')
@@ -49,9 +49,6 @@ export function Draft1v1Component() {
   const [statusMsg, setStatusMsg] = useState('')
 
   const playerId = isHost ? 'host' : 'guest'
-
-  // Sync game state from engine
-  const gameState = engine?.getState?.()
   const budget = isHost ? (gameState?.hostBudget ?? 1000) : (gameState?.guestBudget ?? 1000)
   const activePlayerId = gameState?.activePlayerId ?? 'host'
   const isMyTurn = activePlayerId === playerId
@@ -59,24 +56,21 @@ export function Draft1v1Component() {
   const unitsArray = Array.from(unitsMap.values())
 
   // Auto-switch to playing appPhase when matchPhase hits PLAYING
+  // Auto-switch to playing appPhase when localPhase hits playing
   useEffect(() => {
-    if (gameState?.matchPhase === 'PLAYING') {
+    if (localPhase === 'playing') {
       setAppPhase('playing')
     }
-  }, [gameState?.matchPhase, setAppPhase])
+  }, [localPhase, setAppPhase])
 
-  // Listen to Firebase for phase changes
+  // Listen to store gameState for phase changes
+  const matchPhase = gameState?.matchPhase;
   useEffect(() => {
-    if (!multiplayerRoomId) return
-    const phaseRef = ref(db, `rooms/${multiplayerRoomId}/gameState/matchPhase`)
-    return onValue(phaseRef, (snap) => {
-      const val = snap.val()
-      if (val === 'DRAFTING')   setLocalPhase('draft')
-      if (val === 'PLACEMENT')  setLocalPhase('placement')
-      if (val === 'PLAYING')    setLocalPhase('playing')
-      if (val === 'ENDED')      setLocalPhase('ended')
-    })
-  }, [multiplayerRoomId])
+    if (matchPhase === 'DRAFTING')   setLocalPhase('draft')
+    if (matchPhase === 'PLACEMENT')  setLocalPhase('placement')
+    if (matchPhase === 'PLAYING')    setLocalPhase('playing')
+    if (matchPhase === 'ENDED')      setLocalPhase('ended')
+  }, [matchPhase])
 
   // Sync engine state
   useEffect(() => {
@@ -130,15 +124,9 @@ export function Draft1v1Component() {
     setStatusMsg('🔄 Sıra rakibe geçti.')
   }
 
-  const handleExit = async () => {
+  const handleExit = () => {
     if (multiplayerRoomId) {
-      if (isHost) {
-        // Delete room entirely if Host leaves
-        await remove(ref(db, `rooms/${multiplayerRoomId}`))
-      } else {
-        // Just remove Guest from room
-        await remove(ref(db, `rooms/${multiplayerRoomId}/guest`))
-      }
+      webSocketService.send({ type: 'LEAVE_ROOM' });
     }
     setAppPhase('multiplayer-lobby')
   }
@@ -176,7 +164,19 @@ export function Draft1v1Component() {
 
   // ── PLACEMENT phase ──────────────────────────────────────────
   if (localPhase === 'placement') {
-    const myUnits = unitsArray.filter((u: any) => u.ownerId === playerId || u.getOwnerId?.() === playerId)
+    const placedUnits = unitsArray.filter((u: any) => u.ownerId === playerId || u.getOwnerId?.() === playerId)
+    const draftedRoles = isHost ? (gameState?.hostDraftedRoles ?? []) : (gameState?.guestDraftedRoles ?? [])
+    
+    // Calculate remaining roles to place
+    const remainingRoles = [...draftedRoles]
+    placedUnits.forEach((u: any) => {
+      const role = u.getRole?.() ?? u.role
+      const idx = remainingRoles.indexOf(role)
+      if (idx !== -1) {
+        remainingRoles.splice(idx, 1)
+      }
+    })
+
     const myZoneRows = isHost ? [13, 14] : [0, 1]
     const MAP_SIZE = 15
     return (
@@ -190,8 +190,8 @@ export function Draft1v1Component() {
               <p className="text-mil-dim text-[10px]">Birimleri haritanın {isHost ? 'ALT' : 'ÜST'} kısmına yerleştirin</p>
             </div>
             <div className="text-right">
-              <div className="text-[10px] text-white/40">Yerleştirilen</div>
-              <div className="text-xl font-black text-mil-textBright">{myUnits.length}</div>
+              <div className="text-[10px] text-white/40">Yerleştirilmeyi Bekleyen</div>
+              <div className="text-xl font-black text-mil-textBright">{remainingRoles.length}</div>
             </div>
           </div>
 
@@ -199,15 +199,14 @@ export function Draft1v1Component() {
             {/* Unit picker */}
             <div className="w-48 border-r border-mil-border p-3 overflow-y-auto space-y-2 bg-black/20 flex-shrink-0">
               <div className="text-[10px] text-white/40 font-black uppercase mb-2">Birim Seç</div>
-              {myUnits.map((u: any, i: number) => {
-                const id = u.getId?.() ?? u.id
-                const name = u.getName?.() ?? u.name
+              {remainingRoles.map((role, i) => {
+                const name = UNIT_ROSTER.find(u => u.role === role)?.name ?? role
                 return (
                   <button
-                    key={id}
-                    onClick={() => setPlacingRole(u.getRole?.() ?? u.role)}
+                    key={`${role}-${i}`}
+                    onClick={() => setPlacingRole(role)}
                     className={`w-full py-2 px-2 text-[10px] font-bold border transition-all text-left
-                      ${placingRole === (u.getRole?.() ?? u.role) ? 'bg-mil-cyan text-mil-bg border-mil-cyan' : 'border-mil-border text-mil-textBright hover:border-mil-cyan'}`}
+                      ${placingRole === role ? 'bg-mil-cyan text-mil-bg border-mil-cyan' : 'border-mil-border text-mil-textBright hover:border-mil-cyan'}`}
                   >
                     #{i+1} {name}
                   </button>
@@ -246,11 +245,11 @@ export function Draft1v1Component() {
 
           <div className="p-4 border-t border-mil-border bg-black/20">
             <button
-              disabled={isIReady}
+              disabled={isIReady || remainingRoles.length > 0}
               onClick={handleReady}
-              className={`w-full py-3 bg-mil-cyan text-mil-bg font-black tracking-widest transition-all uppercase ${isIReady ? 'opacity-50 cursor-not-allowed' : 'hover:bg-white'}`}
+              className={`w-full py-3 bg-mil-cyan text-mil-bg font-black tracking-widest transition-all uppercase ${(isIReady || remainingRoles.length > 0) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-white'}`}
             >
-              {isIReady ? '✅ HAZIR!' : '✅ HAZIR! (Rakip Bekleniyor)'}
+              {isIReady ? '✅ HAZIR!' : (remainingRoles.length > 0 ? `BİRİMLERİ YERLEŞTİRİN (${remainingRoles.length})` : '✅ YERLEŞTİRME TAMAMLANDI!')}
             </button>
           </div>
         </div>

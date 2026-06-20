@@ -17,6 +17,7 @@ export default function App() {
     initEngine()
 
     const handleClick = (e: MouseEvent) => {
+      audioManager.resumeContext();
       const target = e.target as HTMLElement;
       if (target.closest('button, a, [role="button"]')) {
         audioManager.playClick();

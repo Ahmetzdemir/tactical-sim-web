@@ -233,25 +233,25 @@ export function MainMenu() {
                 <div className="text-white/40 font-bold uppercase mb-1 text-[9px]">HAVA HAREKATI</div>
                 <div className="flex justify-between border-b border-white/5 pb-1">
                   <span>F-16 CAS DESTEĞİ</span>
-                  <span className="text-[#00FFFF] font-bold">HAZIR (0 DK)</span>
+                  <span className="text-[#00FFFF] font-bold">HAZIR (0 TUR)</span>
                 </div>
                 <div className="flex justify-between pb-1">
                   <span>T-129 ATAK</span>
                   <span className="text-mil-green font-bold">MUTABIK</span>
                 </div>
               </div>
-
+ 
               <div className="pt-2 mt-auto border-t border-mil-yellow/10 text-[8px] opacity-50 space-y-1">
                 <div>TACTICAL_LINK_UP: 100%</div>
-                <div>MEDEVAC_STATUS: IDLE</div>
+                <div>UH60_STATUS: IDLE</div>
                 <div>COGNITIVE_ENGINE: ANTGRAV_V2</div>
               </div>
             </div>
           </div>
         </div>
-
+ 
       </div>
-
+ 
       {/* Footer & Social Links */}
       <div className="relative z-10 flex flex-col items-center mt-2 gap-3">
         <div className="flex gap-4">
@@ -284,7 +284,7 @@ export function MainMenu() {
             <span>KARARGAH SİM SİSTEMİ</span>
           </div>
         </div>
-
+ 
       {/* Credits Modal */}
       {showCredits && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -307,7 +307,7 @@ export function MainMenu() {
                 <div className="text-mil-dim text-xs tracking-widest mb-1 border-b border-mil-dim/30 pb-1">WEB PORT & UI/UX ENTEGRASYONU</div>
                 <div className="text-mil-cyan font-bold text-sm">Antigravity Agency</div>
               </div>
-
+ 
               <div>
                 <div className="text-mil-dim text-xs tracking-widest mb-1 border-b border-mil-dim/30 pb-1">KULLANILAN TEKNOLOJİLER</div>
                 <div className="text-mil-text text-sm flex gap-2 flex-wrap">
@@ -318,7 +318,7 @@ export function MainMenu() {
                 </div>
               </div>
             </div>
-
+ 
             {/* Modal Footer */}
             <div className="mt-8 pt-4 border-t border-mil-border text-center">
               <p className="text-mil-dim text-xs italic">"Taktiksel Derinlik. Asgari Hata."</p>
@@ -348,14 +348,14 @@ export function MainMenu() {
                   Karargaha hoş geldin Komutan. Sahadaki birliklerin hayatı ve operasyonun başarısı, senin haritayı okuma, lojistik hattını ve telsiz ağını yönetme becerine bağlı.
                 </p>
               </div>
-
+ 
               <section>
                 <h2 className="text-mil-yellow font-bold text-lg mb-4 flex items-center gap-2 border-l-4 border-mil-yellow pl-3">
                   1. TEMEL KONTROLLER VE TAKTİK HAREKET
                 </h2>
                 <div className="space-y-3 text-mil-text text-sm leading-relaxed">
                   <p>
-                    Oyun dakika bazlı, dinamik bir simülasyondur. Birliklerinize verdiğiniz emirlerin işlenmesi ve hareketlerin gerçekleşmesi için sağ alttaki <strong>TURU BİTİR (+1 DK)</strong> veya <strong>+5 DK</strong> butonlarını kullanarak zamanı ilerletmelisiniz.
+                    Oyun tur bazlı, dinamik bir simülasyondur. Birliklerinize verdiğiniz emirlerin işlenmesi ve hareketlerin gerçekleşmesi için sağ alttaki <strong>▶ TURU BİTİR</strong> veya <strong>+5 Tur</strong> gibi butonları kullanarak turları ilerletmelisiniz.
                   </p>
                   <ul className="list-disc list-inside space-y-2 marker:text-mil-green">
                     <li><strong className="text-mil-green">Birim Seçimi:</strong> Harita üzerindeki yeşil NATO sembollerine tıklayarak veya sağ panelin en altında bulunan <strong>TİM LİSTESİ</strong> butonlarından birine tıklayarak askerinizi seçebilirsiniz.</li>
@@ -364,7 +364,7 @@ export function MainMenu() {
                   </ul>
                 </div>
               </section>
-
+ 
               <section>
                 <h2 className="text-mil-yellow font-bold text-lg mb-4 flex items-center gap-2 border-l-4 border-mil-yellow pl-3">
                   2. TELSİZ GECİKMESİ VE İLETİŞİM AĞI
@@ -374,12 +374,12 @@ export function MainMenu() {
                     Haritada karargahtan uzaklaştıkça telsiz sinyal kalitesi düşer. Aradaki dağlar (▲), olumsuz hava şartları (Sis, Fırtına vb.) telsiz gecikmesini artırır.
                   </p>
                   <ul className="list-disc list-inside space-y-2 marker:text-mil-green">
-                    <li><strong className="text-mil-green">Emir Gecikmesi:</strong> Telsiz sinyal gücünüze bağlı olarak gönderdiğiniz emirler birimlerinize birkaç dakika (tur) gecikmeyle ulaşabilir.</li>
+                    <li><strong className="text-mil-green">Emir Gecikmesi:</strong> Telsiz sinyal gücünüze bağlı olarak gönderdiğiniz emirler birimlerinize birkaç tur gecikmeyle ulaşabilir.</li>
                     <li><strong className="text-mil-green">Telsiz Röle İstasyonu:</strong> Askerlerinize bulundukları yere telsiz rölesi (<code>telsiz_kur</code>) kurdurarak sinyal kapsamını artırabilir ve gecikmeleri tamamen sıfırlayabilirsiniz.</li>
                   </ul>
                 </div>
               </section>
-
+ 
               <section>
                 <h2 className="text-mil-yellow font-bold text-lg mb-4 flex items-center gap-2 border-l-4 border-mil-yellow pl-3">
                   3. LOJİSTİK, BARK VE BİRİM ROLLERİ
@@ -394,7 +394,7 @@ export function MainMenu() {
                   </ul>
                 </div>
               </section>
-
+ 
               <section>
                 <h2 className="text-mil-yellow font-bold text-lg mb-4 flex items-center gap-2 border-l-4 border-mil-yellow pl-3">
                   4. YARALI TAHLİYESİ VE CARRY (TAŞIMA) SİSTEMİ
@@ -409,15 +409,15 @@ export function MainMenu() {
                   </ul>
                 </div>
               </section>
-
+ 
               <section className="bg-mil-panel p-6 border border-mil-cyan/30">
                 <h2 className="text-mil-cyan font-bold text-lg mb-4 flex items-center gap-2 border-l-4 border-mil-cyan pl-3">
-                  5. HAVA DESTEK VE UH-60 MEDEVAC SİSTEMİ
+                  5. HAVA DESTEK VE UH-60 HAVA NAKLİYE SİSTEMİ
                 </h2>
                 <div className="space-y-3 text-xs leading-relaxed">
                   <div className="border-b border-mil-border pb-3">
-                    <strong className="text-mil-cyan uppercase">🚑 UH-60 MEDEVAC TAHLİYESİ:</strong> Haritadan herhangi bir askeri seçip üstteki <strong>MEDEVAC</strong> butonuna tıklayın, ardından haritada taşınacağı iniş noktasını seçin. Helikopter havadan yola çıkar. Helikopter havada veya sahada yaralıyı alırken <strong>TURU İLERLETMELİSİNİZ</strong>.
-                    <p className="mt-1 text-mil-dim">Yaralı asker helikopterle hedef noktaya ulaştığında otomatik olarak tedavi edilir ve 50 HP kazandırılarak ayağa kaldırılır. Helikopter havada iken telsiz sinyali ve hava durumuna göre düşürülme riski taşır.</p>
+                    <strong className="text-mil-cyan uppercase">🚁 UH-60 HAVA NAKLİYESİ:</strong> Haritadan herhangi bir askeri seçip üstteki <strong>UH-60</strong> butonuna tıklayın, ardından haritada taşınacağı boş hedef noktayı seçin. Helikopter havadan yola çıkar. Helikopter havada veya sahada askeri yüklerken <strong>TURLARI İLERLETMELİSİNİZ</strong>.
+                    <p className="mt-1 text-mil-dim">Birim helikopterle hedef noktaya ulaştığında emniyetle indirilir (yaralıysa 50 HP tedavi edilip canlandırılır). Helikopter havada iken telsiz sinyali ve hava durumuna göre düşürülme riski taşır.</p>
                   </div>
                   <div className="flex justify-between items-center border-b border-mil-border pb-2 pt-1">
                     <span className="text-mil-textBright font-bold underline decoration-mil-yellow">TOPÇU ATIŞI</span>

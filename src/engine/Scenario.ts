@@ -36,6 +36,7 @@ export interface ScenarioSetup {
   phases?: ScenarioPhase[]
   weather?: WeatherType
   customTerrainSetter?: (map: MapGrid) => void
+  mapSize?: number
 }
 
 export const OPERATIONS: OperationInfo[] = [
@@ -78,8 +79,15 @@ export const OPERATIONS: OperationInfo[] = [
     id: '6',
     name: 'Karakol Savunması (Şafak Baskını)',
     desc: 'GECEYARISİ BASKINI. Merkezi stratejik karakolumuzu ağır silahlı timlerle 4 koldan savunun.',
-    objective: 'Karakolu (G-8) 120 dakika boyunca düşmana karşı savun. MG baskı ateşini kullanın!',
+    objective: 'Karakolu (G-8) 120 tur boyunca düşmana karşı savun. MG baskı ateşini kullanın!',
     taskForce: ['2x Ağır Silah Timi (MG)', '1x Piyade', '1x Sıhhiyeci (MEDIC)'],
+  },
+  {
+    id: '7',
+    name: 'Pençe-Kilit Operasyonu (Kışla Taarruzu)',
+    desc: '20x20 geniş muharebe alanı. Güneydeki kurulu kışlamızdan (tüm karargah ve sıhhi yapılar hazır) sızarak, kuzeydeki sarp dağlarda konuşlu terör gruplarına karşı taarruz başlatın.',
+    objective: 'Dağlardaki tüm terör mevzilerini ve düşman unsurlarını tamamen imha edin.',
+    taskForce: ['1x Zırhlı Tim (ARMORED)', '1x İstihkam (ENGINEER)', '1x Ağır Silah (MG)', '1x Keskin Nişancı (SNIPER)', '1x Sıhhiye (MEDIC)', '1x Piyade (RIFLEMAN)'],
   },
 ]
 
@@ -113,6 +121,7 @@ export function loadScenario(index: number, difficulty: 'EASY' | 'STANDARD' | 'H
   let setupPhases: ScenarioPhase[] = []
   let weather: WeatherType = WeatherType.CLEAR
   let customTerrainSetter: ((map: MapGrid) => void) | undefined = undefined
+  let mapSize = 15
 
   if (index === 1) { // Fırat Kalkanı (Cerablus)
     startHour = 6; startMinute = 0
@@ -328,6 +337,75 @@ export function loadScenario(index: number, difficulty: 'EASY' | 'STANDARD' | 'H
       }
     }
 
+  } else if (index === 7) {
+    startHour = 6
+    resources = new ResourceManager(50, 600, 8)
+    hasCapturePoint = false
+    capturePoint = { x: 10, y: 18 }
+    defenseTimerMax = 0
+    mapSize = 20
+
+    const u1 = makeUnit('TİM-1', 'TİM-1 (Piyade)', SoldierRole.RIFLEMAN, 100, 80, 120, 5, 2, 9, 18)
+    u1.setHasPortableRadio(true)
+    const u2 = makeUnit('TİM-2', 'TİM-2 (Sıhhiye)', SoldierRole.MEDIC, 100, 85, 80, 5, 4, 6, 18)
+    u2.setHasPortableRadio(false)
+    const u3 = makeUnit('AĞIR-1', 'Ağır Silah-1 (MG)', SoldierRole.MG, 100, 85, 400, 5, 2, 11, 18)
+    u3.setHasPortableRadio(false)
+    const u4 = makeUnit('GÖLGE-1', 'Gölge-1 (Sniper)', SoldierRole.SNIPER, 100, 100, 60, 3, 1, 8, 18)
+    u4.setHasPortableRadio(false)
+    const u5 = makeUnit('İST-1', 'İstihkam-1 (Eng)', SoldierRole.ENGINEER, 120, 85, 200, 5, 2, 10, 17)
+    u5.setHasPortableRadio(false)
+    const u6 = makeUnit('MEK-1', 'Mekanize-1 (Zırhlı)', SoldierRole.ARMORED, 200, 90, 300, 10, 0, 14, 18)
+    u6.setHasPortableRadio(false)
+
+    units.set('TİM-1', u1)
+    units.set('TİM-2', u2)
+    units.set('AĞIR-1', u3)
+    units.set('GÖLGE-1', u4)
+    units.set('İST-1', u5)
+    units.set('MEK-1', u6)
+
+    enemies.set('TEROR-1', makeEnemy('TEROR-1', 'Dağ Terör Grubu 1', 100, 70, 150, 3, 3, EnemyType.INFANTRY))
+    enemies.set('TEROR-2', makeEnemy('TEROR-2', 'Tepe MG Yuvası', 120, 75, 400, 10, 2, EnemyType.MG))
+    enemies.set('TEROR-3', makeEnemy('TEROR-3', 'Mağara Kesiş Nişancısı', 95, 85, 60, 16, 3, EnemyType.SNIPER))
+    enemies.set('TEROR-4', makeEnemy('TEROR-4', 'Gezici Terör Grubu 2', 100, 70, 150, 13, 4, EnemyType.INFANTRY))
+    enemies.set('TEROR-5', makeEnemy('TEROR-5', 'Gezici Terör Grubu 3', 90, 70, 120, 6, 2, EnemyType.INFANTRY))
+    enemies.set('TEROR-6', makeEnemy('TEROR-6', 'Dağ Makineli Tüfek', 120, 75, 400, 15, 1, EnemyType.MG))
+    enemies.set('TEROR-7', makeEnemy('TEROR-7', 'Dağ Sızma Nişancısı', 90, 85, 50, 2, 5, EnemyType.SNIPER))
+    enemies.set('TEROR-ZIRH', makeEnemy('TEROR-ZIRH', 'Gasp Edilmiş Pikap', 180, 75, 250, 11, 4, EnemyType.ARMORED))
+    enemies.set('TEROR-REZEV', makeEnemy('TEROR-REZEV', 'Yedek Savunma Grubu', 100, 70, 120, 8, 5, EnemyType.INFANTRY))
+
+    initialRadioMessage = { 
+      unitId: 'TİM-1', 
+      message: 'Pençe-Kilit Harekâtı: 20x20 sarp dağlık bölgedeyiz. Güneydeki tam tahkimatlı kışlamızdan (Karargah, Sahra Hastanesi, Mühimmat Deposu ve Siperlerimiz kurulu) taarruz başlatıyoruz. Kuzey dağlarında konuşlu terör gruplarını imha edin.' 
+    }
+    weather = WeatherType.CLOUDY
+    customTerrainSetter = (map) => {
+      for (let y = 0; y < map.height; y++) {
+        for (let x = 0; x < map.width; x++) {
+          if (y <= 6) {
+            const r = Math.random()
+            if (r < 0.6) map.setTerrain(x, y, TerrainType.MOUNTAIN)
+            else if (r < 0.85) map.setTerrain(x, y, TerrainType.FOREST)
+            else map.setTerrain(x, y, TerrainType.OPEN)
+          } else if (y <= 12) {
+            const r = Math.random()
+            if (r < 0.2) map.setTerrain(x, y, TerrainType.FOREST)
+            else if (r < 0.3) map.setTerrain(x, y, TerrainType.MOUNTAIN)
+            else map.setTerrain(x, y, TerrainType.OPEN)
+          } else {
+            map.setTerrain(x, y, TerrainType.OPEN)
+          }
+        }
+      }
+      map.setTerrain(10, 18, TerrainType.FOB_COMMAND)
+      map.setTerrain(7, 18, TerrainType.FOB_HOSPITAL)
+      map.setTerrain(13, 18, TerrainType.FOB_SUPPLY)
+      map.setTerrain(8, 16, TerrainType.FOB_SANDBAGS)
+      map.setTerrain(10, 16, TerrainType.FOB_SANDBAGS)
+      map.setTerrain(12, 16, TerrainType.FOB_SANDBAGS)
+    }
+
   } else {
     return null
   }
@@ -360,5 +438,6 @@ export function loadScenario(index: number, difficulty: 'EASY' | 'STANDARD' | 'H
     phases: setupPhases,
     weather,
     customTerrainSetter,
+    mapSize,
   }
 }

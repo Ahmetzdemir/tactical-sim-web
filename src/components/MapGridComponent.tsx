@@ -365,8 +365,8 @@ export function MapGridComponent() {
     state, selectedUnitId, selectedEnemyId,
     selectUnit, selectEnemy, moveUnit, artilleryAt, airStrikeAt,
     callT129, callUH60, attackMoveToEnemy, attackMode, setAttackMode,
+    strikeMode, setStrikeMode, executeCommandAirdrop,
   } = useGameStore()
-  const [strikeMode, setStrikeMode] = useState<'none' | 'artillery' | 'airstrike' | 't129' | 'uh60' | 'uh60-dropoff' | 'attack'>('none')
   const [tempUH60TargetId, setTempUH60TargetId] = useState<string | null>(null)
   const [hoveredCell, setHoveredCell] = useState<{ x: number; y: number } | null>(null)
   const [activeAnim, setActiveAnim] = useState<{ type: AbilityAnimation; x: number; y: number } | null>(null)
@@ -407,6 +407,11 @@ export function MapGridComponent() {
   }, [enemies])
 
   const handleCellClick = useCallback((x: number, y: number) => {
+    if (strikeMode === 'command-airdrop') {
+      executeCommandAirdrop(x, y)
+      setStrikeMode('none')
+      return
+    }
     if (strikeMode === 'artillery') {
       const ok = artilleryAt(x, y)
       if (ok) setActiveAnim({ type: 'artillery', x, y })
@@ -420,11 +425,9 @@ export function MapGridComponent() {
       return
     }
     if (strikeMode === 't129') {
-      if (selectedUnitId) {
-        const ok = callT129(selectedUnitId, x, y)
-        if (ok) setActiveAnim({ type: 'atak', x, y })
-        setStrikeMode('none')
-      }
+      const ok = callT129(x, y)
+      if (ok) setActiveAnim({ type: 'atak', x, y })
+      setStrikeMode('none')
       return
     }
     if (strikeMode === 'uh60') {
@@ -493,7 +496,7 @@ export function MapGridComponent() {
     } else if (selectedUnitId) {
       moveUnit(selectedUnitId, x, y)
     }
-  }, [strikeMode, selectedUnitId, unitPositions, enemyPositions, artilleryAt, airStrikeAt, callT129, callUH60, attackMoveToEnemy, selectUnit, selectEnemy, moveUnit, state])
+  }, [strikeMode, selectedUnitId, unitPositions, enemyPositions, artilleryAt, airStrikeAt, callT129, callUH60, executeCommandAirdrop, attackMoveToEnemy, selectUnit, selectEnemy, moveUnit, state, setStrikeMode])
 
   const handleMouseEnter = useCallback((x: number, y: number) => {
     setHoveredCell({ x, y })
@@ -524,24 +527,23 @@ export function MapGridComponent() {
         <div className="ml-auto flex gap-2">
           <button
             id="btn-artillery"
-            onClick={() => setStrikeMode(s => s === 'artillery' ? 'none' : 'artillery')}
+            onClick={() => setStrikeMode(strikeMode === 'artillery' ? 'none' : 'artillery')}
             className={`text-xs px-2 py-0.5 border transition-all ${strikeMode === 'artillery' ? 'border-[#FFD700] text-[#FFD700] bg-yellow-950/20' : 'border-mil-border text-[#4b5563] hover:text-[#FFD700]'}`}
           >
             💣 TOPÇU
           </button>
           <button
             id="btn-airstrike"
-            onClick={() => setStrikeMode(s => s === 'airstrike' ? 'none' : 'airstrike')}
+            onClick={() => setStrikeMode(strikeMode === 'airstrike' ? 'none' : 'airstrike')}
             className={`text-xs px-2 py-0.5 border transition-all ${strikeMode === 'airstrike' ? 'border-[#FF00FF] text-[#FF00FF] bg-purple-950/20' : 'border-mil-border text-[#4b5563] hover:text-[#FF00FF]'}`}
-            title="F-16 Hava Saldırısı (Geniş Alan Hasarı)"
+            title="F-16 Hava Saldırısı (Geniş Area Hasarı)"
           >
             ✈️ F-16
           </button>
           <button
             id="btn-t129"
-            disabled={!selectedUnitId}
-            onClick={() => setStrikeMode(s => s === 't129' ? 'none' : 't129')}
-            className={`text-xs px-2 py-0.5 border transition-all ${!selectedUnitId ? 'opacity-30 cursor-not-allowed border-mil-border text-[#4b5563]' : strikeMode === 't129' ? 'border-[#00FF00] text-[#00FF00] bg-green-950/20' : 'border-mil-border text-[#4b5563] hover:text-[#00FF00]'}`}
+            onClick={() => setStrikeMode(strikeMode === 't129' ? 'none' : 't129')}
+            className={`text-xs px-2 py-0.5 border transition-all ${strikeMode === 't129' ? 'border-[#00FF00] text-[#00FF00] bg-green-950/20' : 'border-mil-border text-[#4b5563] hover:text-[#00FF00]'}`}
           >
             🚁 ATAK
           </button>
@@ -559,11 +561,26 @@ export function MapGridComponent() {
             }}
             className={`text-xs px-2 py-0.5 border transition-all ${(!selectedUnitId || state.uh60State !== 'idle') ? 'opacity-30 cursor-not-allowed border-mil-border text-[#4b5563]' : strikeMode === 'uh60-dropoff' ? 'border-[#00FFFF] text-[#00FFFF] bg-cyan-950/20' : 'border-mil-border text-[#4b5563] hover:text-[#00FFFF]'}`}
           >
-            🚑 MEDEVAC
+            🚁 UH-60
           </button>
         </div>
       </div>
 
+      {/* Command Airdrop Mode Active Banner */}
+      {strikeMode === 'command-airdrop' && (
+        <div className="px-3 py-2 bg-yellow-950/30 border-b border-[#FFD700]/40 flex items-center justify-between z-20 animate-pulse">
+          <div className="flex items-center gap-2">
+            <span className="text-[#FFD700] text-sm">📦</span>
+            <span className="text-[#FFD700] text-xs font-bold tracking-wider uppercase">HAVA İKMALİ KONUMU SEÇİN — HEDEF BOŞ ARAZİYE TIKLAYIN</span>
+          </div>
+          <button
+            onClick={() => setStrikeMode('none')}
+            className="text-xs px-2 py-0.5 border border-[#FFD700]/40 text-[#FFD700] hover:bg-yellow-950/40 transition-all"
+          >
+            ✕ İPTAL
+          </button>
+        </div>
+      )}
       {/* Attack Mode Active Banner */}
       {strikeMode === 'attack' && (
         <div className="px-3 py-2 bg-orange-950/30 border-b border-[#FF8C00]/40 flex items-center justify-between z-20">
@@ -583,7 +600,7 @@ export function MapGridComponent() {
         <div className="px-3 py-2 bg-cyan-950/30 border-b border-[#00FFFF]/40 flex items-center justify-between z-20">
           <div className="flex items-center gap-2 animate-pulse">
             <span className="text-[#00FFFF] text-sm">🚁</span>
-            <span className="text-[#00FFFF] text-xs font-bold tracking-wider uppercase">MEDEVAC AKTİF — HARİTADAN ALINACAK YARALI ASKERİ SEÇİN</span>
+            <span className="text-[#00FFFF] text-xs font-bold tracking-wider uppercase">UH-60 AKTİF — TAŞINACAK ASKERİ SEÇİN</span>
           </div>
           <button
             onClick={() => { setStrikeMode('none'); setTempUH60TargetId(null) }}
@@ -597,7 +614,7 @@ export function MapGridComponent() {
         <div className="px-3 py-2 bg-yellow-950/30 border-b border-[#FFD700]/40 flex items-center justify-between z-20 animate-pulse">
           <div className="flex items-center gap-2">
             <span className="text-[#FFD700] text-sm">📍</span>
-            <span className="text-[#FFD700] text-xs font-bold tracking-wider uppercase">MEDEVAC İNİŞ NOKTASI SEÇİN — YARALININ İNDİRİLECEĞİ HEDEF KONUMA TIKLAYIN</span>
+            <span className="text-[#FFD700] text-xs font-bold tracking-wider uppercase">UH-60 NAKLİYE NOKTASI SEÇİN — HEDEF KONUMA TIKLAYIN</span>
           </div>
           <button
             onClick={() => { setStrikeMode('none'); setTempUH60TargetId(null) }}
@@ -613,8 +630,8 @@ export function MapGridComponent() {
             <span className={state.uh60State === 'flying' ? 'text-[#00FFFF] animate-bounce text-sm' : 'text-[#FFD700] animate-pulse text-sm'}>🚁</span>
             <span className={`text-xs font-bold tracking-wider uppercase ${state.uh60State === 'flying' ? 'text-[#00FFFF]' : 'text-[#FFD700]'}`}>
               {state.uh60State === 'flying' 
-                ? `MEDEVAC HAVADA — HEDEFE ULAŞMASINA: ${state.uh60Timer} DK (TURU İLERLETİN)` 
-                : `MEDEVAC SAHADA — YARALI ALINIYOR. KALAN SÜRE: ${state.uh60Timer} DK (TURU İLERLETİN)`}
+                ? `UH-60 HAVADA — HEDEFE ULAŞMASINA: ${state.uh60Timer} TUR (TURU İLERLETİN)` 
+                : `UH-60 SAHADA — PERSONEL ALINIYOR. KALAN SÜRE: ${state.uh60Timer} TUR (TURU İLERLETİN)`}
             </span>
           </div>
         </div>
@@ -683,7 +700,7 @@ export function MapGridComponent() {
                 else if (isOnAttackPath) borderColor = 'rgba(255, 140, 0, 0.5)'
                 else if (isOnMovePath) borderColor = 'rgba(0, 255, 255, 0.4)'
                 else if (isStrikeTarget) {
-                  borderColor = strikeMode === 'artillery' ? '#FFD700' : strikeMode === 't129' ? '#00FF00' : strikeMode === 'attack' ? '#FF8C00' : '#00FFFF'
+                  borderColor = strikeMode === 'artillery' ? '#FFD700' : strikeMode === 't129' ? '#00FF00' : strikeMode === 'attack' ? '#FF8C00' : strikeMode === 'command-airdrop' ? '#FFA500' : '#00FFFF'
                 }
 
                 const activeConstr = state.activeConstructions?.get(cellKey)
@@ -769,7 +786,7 @@ export function MapGridComponent() {
               const riskPct = Math.round(Math.max(5, Math.min(80, (1 - sig) * 100)))
               return (
                 <span className="text-mil-red animate-pulse">
-                  MEDEVAC VURULMA RİSKİ: {riskPct}%
+                  UH-60 VURULMA RİSKİ: {riskPct}%
                 </span>
               )
             })()}
